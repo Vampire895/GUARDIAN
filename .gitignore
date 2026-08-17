@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.*
+!.env.example
+guardian.log
+guardian-error.log
