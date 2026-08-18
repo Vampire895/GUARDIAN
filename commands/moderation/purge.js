@@ -90,14 +90,12 @@ async function execute(message, args) {
      */
     const fetched =
         await message.channel.messages.fetch({
+
             limit: 100
         });
 
     let filtered =
         fetched;
-
-    let deleteAmount =
-        0;
 
     let purgeType =
         "mass";
@@ -117,7 +115,37 @@ async function execute(message, args) {
         purgeType = "bots";
 
         const amount =
-            parseInt(args[1]) || 50;
+            parseInt(args[1]);
+
+        const requestedAmount =
+            args[1]
+                ? amount
+                : 50;
+
+        /**
+         * Validate amount
+         */
+        if (
+
+            !Number.isInteger(
+                requestedAmount
+            )
+            ||
+            requestedAmount < 1
+            ||
+            requestedAmount > 100
+
+        ) {
+
+            return message.reply({
+
+                embeds: [
+                    createErrorEmbed(
+                        "Provide a number between 1-100."
+                    )
+                ]
+            });
+        }
 
         filtered =
             fetched.filter(msg =>
@@ -125,10 +153,9 @@ async function execute(message, args) {
             );
 
         filtered =
-            filtered.first(amount);
-
-        deleteAmount =
-            filtered.length;
+            filtered.first(
+                requestedAmount
+            );
     }
 
     /**
@@ -147,9 +174,12 @@ async function execute(message, args) {
         const amount =
             parseInt(args[1]);
 
+        /**
+         * Validate amount
+         */
         if (
 
-            !amount
+            !Number.isInteger(amount)
             ||
             amount < 1
             ||
@@ -173,10 +203,9 @@ async function execute(message, args) {
             );
 
         filtered =
-            filtered.first(amount);
-
-        deleteAmount =
-            filtered.length;
+            filtered.first(
+                amount
+            );
     }
 
     /**
@@ -188,9 +217,12 @@ async function execute(message, args) {
         const amount =
             parseInt(args[0]);
 
+        /**
+         * Validate amount
+         */
         if (
 
-            !amount
+            !Number.isInteger(amount)
             ||
             amount < 1
             ||
@@ -209,11 +241,36 @@ async function execute(message, args) {
         }
 
         filtered =
-            fetched.first(amount);
-
-        deleteAmount =
-            filtered.length;
+            fetched.first(
+                amount
+            );
     }
+
+    /**
+     * Filter messages older than 14 days
+     *
+     * Discord bulk deletion cannot delete
+     * messages older than 14 days.
+     */
+    const fourteenDaysAgo =
+        Date.now()
+        - (
+            14
+            * 24
+            * 60
+            * 60
+            * 1000
+        );
+
+    filtered =
+        filtered.filter(
+            msg =>
+                msg.createdTimestamp
+                > fourteenDaysAgo
+        );
+
+    const deleteAmount =
+        filtered.length;
 
     /**
      * Nothing found
@@ -224,7 +281,7 @@ async function execute(message, args) {
 
             embeds: [
                 createErrorEmbed(
-                    "No messages found to delete."
+                    "No deletable messages found. Messages older than 14 days cannot be bulk deleted."
                 )
             ]
         });
@@ -252,19 +309,37 @@ async function execute(message, args) {
      */
     try {
 
-        await message.channel.bulkDelete(
-            filtered,
-            true
-        );
+        /**
+         * Discord bulk deletion requires
+         * at least 2 messages.
+         */
+        if (deleteAmount === 1) {
+
+            const singleMessage =
+                filtered.first();
+
+            await singleMessage.delete();
+
+        } else {
+
+            await message.channel.bulkDelete(
+                filtered,
+                true
+            );
+        }
 
     } catch (error) {
+
+        console.error(
+            "[Purge Error]",
+            error
+        );
 
         return message.reply({
 
             embeds: [
                 createErrorEmbed(
-
-"Failed to delete messages. Messages may be older than 14 days."
+                    "Failed to delete messages."
                 )
             ]
         });

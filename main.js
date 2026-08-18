@@ -115,6 +115,12 @@ for (const folder of commandFolders) {
             `./commands/${folder}/${file}`
         );
 
+       /**
+ * Store command category
+ */
+command.category =
+    folder.toLowerCase();
+
         /**
          * Validate command
          */

@@ -19,8 +19,9 @@ const {
 const name = "role";
 
 const aliases = [
-    "giverole",
-    "takerole"
+    "give",
+    "take",
+    "remove"
 ];
 
 const description =
@@ -45,7 +46,7 @@ function resolveRole(message, args) {
      */
     role =
         message.guild.roles.cache.get(
-            args[2]
+            args[1]
         );
 
     if (role) return role;
@@ -54,7 +55,7 @@ function resolveRole(message, args) {
      * Role name
      */
     const roleName =
-        args.slice(2).join(" ").toLowerCase();
+        args.slice(1).join(" ").toLowerCase();
 
     if (!roleName) return null;
 
@@ -75,8 +76,43 @@ function resolveRole(message, args) {
 
 async function execute(message, args) {
 
-    const action =
-        args[0]?.toLowerCase();
+    /**
+     * Determine invoked command
+     *
+     * .role   = add
+     * .give   = add
+     * .take   = remove
+     * .remove = remove
+     */
+
+    const commandName =
+        message.content
+            .trim()
+            .split(/ +/)[0]
+            .replace(/^[^\w]*/, "")
+            .toLowerCase();
+
+    let action = null;
+
+    if (
+        commandName === "role"
+        ||
+        commandName === "give"
+    ) {
+
+        action = "add";
+
+    }
+
+    if (
+        commandName === "take"
+        ||
+        commandName === "remove"
+    ) {
+
+        action = "remove";
+
+    }
 
     const target =
         message.mentions.members.first();
@@ -90,14 +126,13 @@ async function execute(message, args) {
     /**
      * Validate usage
      */
-    if (
 
+    if (
         !action
         ||
         !target
         ||
         !role
-
     ) {
 
         return message.reply({
@@ -108,31 +143,12 @@ async function execute(message, args) {
 
 `Usage Examples:
 
-.role add @user @role
-.role remove @user @role
-.role add @user roleid
-.role add @user Role Name`
-                )
-            ]
-        });
-    }
-
-    /**
-     * Validate action
-     */
-    if (
-
-        action !== "add"
-        &&
-        action !== "remove"
-
-    ) {
-
-        return message.reply({
-
-            embeds: [
-                createErrorEmbed(
-                    "Use add or remove."
+.role @user @role
+.give @user @role
+.take @user @role
+.remove @user @role
+.role @user roleid
+.give @user Role Name`
                 )
             ]
         });
@@ -141,6 +157,7 @@ async function execute(message, args) {
     /**
      * Permission check
      */
+
     const permCheck =
         checkPermissions({
 
@@ -167,13 +184,28 @@ async function execute(message, args) {
     }
 
     /**
+     * Managed role check
+     */
+
+    if (role.managed) {
+
+        return message.reply({
+
+            embeds: [
+                createErrorEmbed(
+                    "I cannot manage this role."
+                )
+            ]
+        });
+    }
+
+    /**
      * Bot hierarchy check
      */
-    if (
 
+    if (
         role.position >=
         botMember.roles.highest.position
-
     ) {
 
         return message.reply({
@@ -189,11 +221,10 @@ async function execute(message, args) {
     /**
      * User hierarchy check
      */
-    if (
 
+    if (
         role.position >=
         message.member.roles.highest.position
-
     ) {
 
         return message.reply({
@@ -209,12 +240,11 @@ async function execute(message, args) {
     /**
      * Prevent duplicate actions
      */
-    if (
 
+    if (
         action === "add"
         &&
         target.roles.cache.has(role.id)
-
     ) {
 
         return message.reply({
@@ -228,11 +258,9 @@ async function execute(message, args) {
     }
 
     if (
-
         action === "remove"
         &&
         !target.roles.cache.has(role.id)
-
     ) {
 
         return message.reply({
@@ -248,6 +276,7 @@ async function execute(message, args) {
     /**
      * Confirmation
      */
+
     const confirmed =
         await confirmAction({
 
@@ -272,6 +301,7 @@ ${target.user.tag}?`
     /**
      * Execute action
      */
+
     try {
 
         if (action === "add") {
@@ -290,6 +320,11 @@ ${target.user.tag}?`
 
     } catch (error) {
 
+        console.error(
+            "[ROLE COMMAND ERROR]",
+            error
+        );
+
         return message.reply({
 
             embeds: [
@@ -303,6 +338,7 @@ ${target.user.tag}?`
     /**
      * Success embed
      */
+
     const successEmbed =
         createSuccessEmbed(
 
@@ -321,6 +357,7 @@ ${message.author.tag}`
     /**
      * Send success response
      */
+
     await message.reply({
 
         embeds: [successEmbed]
@@ -329,6 +366,7 @@ ${message.author.tag}`
     /**
      * Moderation log embed
      */
+
     const logEmbed =
         createInfoEmbed(
 
@@ -347,6 +385,7 @@ ${message.author.tag}`
     /**
      * Dispatch moderation log
      */
+
     await logAction({
 
         guild:

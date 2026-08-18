@@ -140,6 +140,99 @@ async function execute(message, args) {
     if (!confirmed) return;
 
     /**
+     * Resolve saved roles
+     *
+     * Only restore roles that:
+     *
+     * 1. Still exist
+     * 2. Are not managed roles
+     * 3. Are below Guardian's highest role
+     */
+    const rolesToRestore = [];
+
+    for (
+        const roleId
+        of isolationData.roles
+    ) {
+
+        const role =
+            message.guild.roles.cache.get(
+                roleId
+            );
+
+        /**
+         * Role was deleted
+         */
+        if (!role) {
+
+            continue;
+        }
+
+        /**
+         * Managed roles cannot be
+         * manually restored
+         */
+        if (role.managed) {
+
+            continue;
+        }
+
+        /**
+         * Guardian cannot manage
+         * roles at or above its highest role
+         */
+        if (
+
+            role.position >=
+            botMember.roles.highest.position
+
+        ) {
+
+            continue;
+        }
+
+        /**
+         * Restore valid role
+         */
+        rolesToRestore.push(
+            role
+        );
+    }
+
+    /**
+     * Restore original roles
+     *
+     * Do this before removing
+     * Quarantine so the user is not
+     * released without their valid roles.
+     */
+    try {
+
+        if (rolesToRestore.length) {
+
+            await target.roles.add(
+                rolesToRestore
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "[Bail] Failed to restore user roles:",
+            error
+        );
+
+        return message.reply({
+
+            embeds: [
+                createErrorEmbed(
+                    "Failed to restore the user's roles. Isolation was not removed."
+                )
+            ]
+        });
+    }
+
+    /**
      * Remove quarantine role
      */
     try {
@@ -159,20 +252,18 @@ async function execute(message, args) {
             );
         }
 
-        /**
-         * Restore original roles
-         */
-        await target.roles.add(
-            isolationData.roles
-        );
-
     } catch (error) {
+
+        console.error(
+            "[Bail] Failed to remove Quarantine:",
+            error
+        );
 
         return message.reply({
 
             embeds: [
                 createErrorEmbed(
-                    "Failed to restore user roles."
+                    "Failed to remove the Quarantine role. Isolation data was kept."
                 )
             ]
         });
@@ -180,15 +271,38 @@ async function execute(message, args) {
 
     /**
      * Delete isolation entry
+     *
+     * Discord restoration succeeded,
+     * so the isolation record can now
+     * safely be removed.
      */
-    await IsolatedUser.deleteOne({
+    try {
 
-        userId:
-            target.id,
+        await IsolatedUser.deleteOne({
 
-        guildId:
-            message.guild.id
-    });
+            userId:
+                target.id,
+
+            guildId:
+                message.guild.id
+        });
+
+    } catch (error) {
+
+        console.error(
+            "[Bail] Failed to delete isolation data:",
+            error
+        );
+
+        return message.reply({
+
+            embeds: [
+                createErrorEmbed(
+                    "User was released, but isolation data could not be removed from the database."
+                )
+            ]
+        });
+    }
 
     /**
      * Success embed

@@ -1,3 +1,7 @@
+const {
+    ChannelType
+} = require("discord.js");
+
 const { checkPermissions } = require(
     "../../systems/permission-system"
 );
@@ -30,6 +34,9 @@ const aliases = [
 const description =
     "Temporarily isolate a user.";
 
+const MAX_DURATION =
+    12 * 60 * 60 * 1000;
+
 /**
  * Parse duration
  */
@@ -44,24 +51,220 @@ function parseDuration(str) {
     const num =
         parseInt(match[1]);
 
+    if (num <= 0) return null;
+
     const unit =
         match[2];
 
+    let duration;
+
     if (unit === "s") {
-        return num * 1000;
+
+        duration =
+            num * 1000;
     }
 
     if (unit === "m") {
-        return num * 60 * 1000;
+
+        duration =
+            num * 60 * 1000;
     }
 
     if (unit === "h") {
-        return num * 60 * 60 * 1000;
+
+        duration =
+            num * 60 * 60 * 1000;
     }
 
     if (unit === "d") {
-        return num * 24 * 60 * 60 * 1000;
+
+        duration =
+            num * 24 * 60 * 60 * 1000;
     }
+
+    if (!duration) return null;
+
+    if (duration > MAX_DURATION) {
+
+        return null;
+    }
+
+    return duration;
+}
+
+/**
+ * Find/Create and configure
+ * Quarantine role
+ */
+
+async function getQuarantineRole(
+    guild,
+    botMember
+) {
+
+    let quarantineRole =
+        guild.roles.cache.find(
+
+            role =>
+                role.name === "Quarantine"
+        );
+
+    /**
+     * Create role if missing
+     */
+
+    if (!quarantineRole) {
+
+        try {
+
+            quarantineRole =
+                await guild.roles.create({
+
+                    name:
+                        "Quarantine",
+
+                    permissions: []
+                });
+
+        } catch (error) {
+
+            console.error(
+                "[Isolation] Failed to create Quarantine role:",
+                error
+            );
+
+            return {
+
+                success: false,
+
+                error:
+                    "I could not create the Quarantine role."
+            };
+        }
+    }
+
+    /**
+     * Ensure bot can manage role
+     */
+
+    if (
+
+        quarantineRole.managed
+        ||
+        quarantineRole.position >=
+        botMember.roles.highest.position
+
+    ) {
+
+        return {
+
+            success: false,
+
+            error:
+                "I cannot manage the Quarantine role."
+        };
+    }
+
+    /**
+     * Configure only normal public
+     * text channels.
+     *
+     * Threads are intentionally skipped.
+     * Private channels are intentionally skipped.
+     * Voice channels are intentionally skipped.
+     * Categories are intentionally skipped.
+     */
+
+    for (
+        const [, channel]
+        of guild.channels.cache
+    ) {
+
+        /**
+         * Only normal guild text channels
+         */
+
+        if (
+            channel.type !==
+            ChannelType.GuildText
+        ) {
+
+            continue;
+        }
+
+        /**
+         * Check @everyone permissions
+         *
+         * Only channels where everyone can
+         * actually view and send messages
+         * should be affected.
+         */
+
+        const everyonePermissions =
+            channel.permissionsFor(
+                guild.roles.everyone
+            );
+
+        if (!everyonePermissions) {
+
+            continue;
+        }
+
+        if (
+            !everyonePermissions.has(
+                "ViewChannel"
+            )
+            ||
+            !everyonePermissions.has(
+                "SendMessages"
+            )
+        ) {
+
+            continue;
+        }
+
+        try {
+
+            await channel.permissionOverwrites.edit(
+
+                quarantineRole,
+
+                {
+
+                    SendMessages:
+                        false,
+
+                    AddReactions:
+                        false
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+
+                `[Isolation] Failed to configure Quarantine in #${channel.name}:`,
+
+                error
+            );
+
+            return {
+
+                success: false,
+
+                error:
+                    `I could not configure Quarantine permissions in #${channel.name}.`
+            };
+        }
+    }
+
+    return {
+
+        success: true,
+
+        role:
+            quarantineRole
+    };
 }
 
 /**
@@ -89,6 +292,7 @@ async function execute(message, args) {
     /**
      * Validate target
      */
+
     if (!target) {
 
         return message.reply({
@@ -104,6 +308,7 @@ async function execute(message, args) {
     /**
      * Validate duration
      */
+
     if (!duration) {
 
         return message.reply({
@@ -112,7 +317,7 @@ async function execute(message, args) {
 
                 createErrorEmbed(
 
-"Provide valid duration (10m, 1h, 1d)."
+                    "Provide a valid duration from 1s up to 12h."
                 )
             ]
         });
@@ -121,6 +326,7 @@ async function execute(message, args) {
     /**
      * Permission check
      */
+
     const permCheck =
         checkPermissions({
 
@@ -147,8 +353,30 @@ async function execute(message, args) {
     }
 
     /**
+     * Guardian needs Manage Channels
+     * to configure Quarantine overwrites.
+     */
+
+    if (
+        !botMember.permissions.has(
+            "ManageChannels"
+        )
+    ) {
+
+        return message.reply({
+
+            embeds: [
+                createErrorEmbed(
+                    "I need Manage Channels permission to isolate users."
+                )
+            ]
+        });
+    }
+
+    /**
      * Prevent invalid targets
      */
+
     if (target.id === message.author.id) {
 
         return message.reply({
@@ -176,6 +404,7 @@ async function execute(message, args) {
     /**
      * Hierarchy checks
      */
+
     if (
 
         target.roles.highest.position >=
@@ -211,55 +440,9 @@ async function execute(message, args) {
     }
 
     /**
-     * Find/Create quarantine role
-     */
-    let quarantineRole =
-        message.guild.roles.cache.find(
-
-            role =>
-                role.name === "Quarantine"
-        );
-
-    /**
-     * Create role if missing
-     */
-    if (!quarantineRole) {
-
-        quarantineRole =
-            await message.guild.roles.create({
-
-                name:
-                    "Quarantine",
-
-                permissions: []
-            });
-
-        /**
-         * Lock all channels
-         */
-        for (const [, channel] of message.guild.channels.cache) {
-
-            try {
-
-                await channel.permissionOverwrites.edit(
-
-                    quarantineRole,
-
-                    {
-                        SendMessages: false,
-                        AddReactions: false,
-                        Speak: false,
-                        Connect: false
-                    }
-                );
-
-            } catch (error) {}
-        }
-    }
-
-    /**
      * Confirmation
      */
+
     const confirmed =
         await confirmAction({
 
@@ -278,8 +461,37 @@ for ${durationInput}?`
     if (!confirmed) return;
 
     /**
+     * Find/Create and configure
+     * Quarantine role
+     */
+
+    const quarantineResult =
+        await getQuarantineRole(
+
+            message.guild,
+
+            botMember
+        );
+
+    if (!quarantineResult.success) {
+
+        return message.reply({
+
+            embeds: [
+                createErrorEmbed(
+                    quarantineResult.error
+                )
+            ]
+        });
+    }
+
+    const quarantineRole =
+        quarantineResult.role;
+
+    /**
      * Execute isolation
      */
+
     const result =
         await isolateUser({
 
@@ -295,8 +507,9 @@ for ${durationInput}?`
         });
 
     /**
-     * Already isolated
+     * Isolation failed
      */
+
     if (!result.success) {
 
         return message.reply({
@@ -312,6 +525,7 @@ for ${durationInput}?`
     /**
      * Success embed
      */
+
     const successEmbed =
         createSuccessEmbed(
 
@@ -330,6 +544,7 @@ ${reason}`
     /**
      * Send success response
      */
+
     await message.reply({
 
         embeds: [successEmbed]
@@ -338,6 +553,7 @@ ${reason}`
     /**
      * Moderation log embed
      */
+
     const logEmbed =
         createInfoEmbed(
 
@@ -359,6 +575,7 @@ ${reason}`
     /**
      * Dispatch moderation log
      */
+
     await logAction({
 
         guild:

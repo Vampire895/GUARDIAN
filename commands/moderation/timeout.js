@@ -18,8 +18,16 @@ const logAction = require(
 
 const name = "timeout";
 
+const aliases = [
+    "mute",
+    "chup"
+];
+
 const description =
     "Temporarily mute a user.";
+
+const MAX_TIMEOUT =
+    28 * 24 * 60 * 60 * 1000;
 
 /**
  * Parse timeout duration
@@ -35,7 +43,16 @@ function parseDuration(str) {
     if (!match) return null;
 
     const num =
-        parseInt(match[1]);
+        Number(match[1]);
+
+    if (
+        !Number.isSafeInteger(num)
+        ||
+        num <= 0
+    ) {
+
+        return null;
+    }
 
     const unit =
         match[2];
@@ -55,6 +72,8 @@ function parseDuration(str) {
     if (unit === "d") {
         return num * 24 * 60 * 60 * 1000;
     }
+
+    return null;
 }
 
 /**
@@ -76,6 +95,7 @@ async function execute(message, args) {
     /**
      * Validate target
      */
+
     if (!target) {
 
         return message.reply({
@@ -91,6 +111,7 @@ async function execute(message, args) {
     /**
      * Validate duration
      */
+
     const duration =
         parseDuration(durationStr);
 
@@ -100,7 +121,23 @@ async function execute(message, args) {
 
             embeds: [
                 createErrorEmbed(
-                    "Provide valid duration (10m, 1h, 1d)."
+                    "Provide valid duration (10s, 10m, 1h, 1d)."
+                )
+            ]
+        });
+    }
+
+    /**
+     * Maximum Discord timeout duration
+     */
+
+    if (duration > MAX_TIMEOUT) {
+
+        return message.reply({
+
+            embeds: [
+                createErrorEmbed(
+                    "Timeout cannot be longer than 28 days."
                 )
             ]
         });
@@ -109,6 +146,7 @@ async function execute(message, args) {
     /**
      * Permission checks
      */
+
     const permCheck =
         checkPermissions({
 
@@ -138,6 +176,7 @@ async function execute(message, args) {
     /**
      * Invalid targets
      */
+
     if (target.id === message.author.id) {
 
         return message.reply({
@@ -177,11 +216,10 @@ async function execute(message, args) {
     /**
      * Role hierarchy
      */
-    if (
 
+    if (
         target.roles.highest.position >=
         message.member.roles.highest.position
-
     ) {
 
         return message.reply({
@@ -195,10 +233,8 @@ async function execute(message, args) {
     }
 
     if (
-
         target.roles.highest.position >=
         message.guild.members.me.roles.highest.position
-
     ) {
 
         return message.reply({
@@ -214,6 +250,7 @@ async function execute(message, args) {
     /**
      * Confirmation
      */
+
     const confirmed =
         await confirmAction({
 
@@ -231,6 +268,7 @@ async function execute(message, args) {
     /**
      * Execute timeout
      */
+
     try {
 
         await target.timeout(
@@ -239,6 +277,11 @@ async function execute(message, args) {
         );
 
     } catch (error) {
+
+        console.error(
+            "[TIMEOUT COMMAND ERROR]",
+            error
+        );
 
         return message.reply({
 
@@ -253,6 +296,7 @@ async function execute(message, args) {
     /**
      * Success embed
      */
+
     const successEmbed =
         createSuccessEmbed(
 
@@ -267,6 +311,7 @@ ${reason}`
     /**
      * Send success response
      */
+
     await message.reply({
 
         embeds: [successEmbed]
@@ -275,6 +320,7 @@ ${reason}`
     /**
      * Logging embed
      */
+
     const logEmbed =
         createInfoEmbed(
 
@@ -293,6 +339,7 @@ ${reason}`
     /**
      * Dispatch moderation log
      */
+
     await logAction({
 
         guild:
@@ -307,6 +354,7 @@ ${reason}`
 
 module.exports = {
     name,
+    aliases,
     description,
     execute
 };

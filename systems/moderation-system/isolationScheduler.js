@@ -8,50 +8,93 @@ const IsolatedUser = require(
 
 async function restoreIsolation(client) {
 
-    const isolatedUsers =
-        await IsolatedUser.find();
+    try {
 
-    for (const data of isolatedUsers) {
+        const isolatedUsers =
+            await IsolatedUser.find();
 
-        /**
-         * Remaining duration
-         */
-        const remaining =
-            data.endTime.getTime()
-            - Date.now();
+        for (
+            const data
+            of isolatedUsers
+        ) {
 
-        /**
-         * Already expired
-         */
-        if (remaining <= 0) {
-
-            await restoreUser(
+            scheduleRestore(
                 client,
                 data
             );
-
-            continue;
         }
 
-        /**
-         * Schedule restore
-         */
-        setTimeout(async () => {
+    } catch (error) {
+
+        console.error(
+            "[Isolation Scheduler Error]",
+            error
+        );
+    }
+}
+
+/**
+ * Schedule restoration
+ * for one isolated user
+ */
+
+function scheduleRestore(
+    client,
+    data
+) {
+
+    /**
+     * Remaining duration
+     */
+
+    const remaining =
+        data.endTime.getTime()
+        - Date.now();
+
+    /**
+     * Already expired
+     */
+
+    if (remaining <= 0) {
+
+        restoreUser(
+            client,
+            data
+        );
+
+        return;
+    }
+
+    /**
+     * Schedule restore
+     */
+
+    setTimeout(
+        async () => {
 
             await restoreUser(
                 client,
                 data
             );
 
-        }, remaining);
-    }
+        },
+        remaining
+    );
+
+    console.log(
+
+`[Isolation] Restoration scheduled for ${data.userId} in ${Math.ceil(remaining / 1000)}s`
+    );
 }
 
 /**
  * Restore single user
  */
 
-async function restoreUser(client, data) {
+async function restoreUser(
+    client,
+    data
+) {
 
     try {
 
@@ -60,25 +103,70 @@ async function restoreUser(client, data) {
                 data.guildId
             );
 
-        if (!guild) return;
+        /**
+         * Guild no longer available
+         *
+         * Remove stale isolation data.
+         */
+
+        if (!guild) {
+
+            await IsolatedUser.deleteOne({
+
+                userId:
+                    data.userId,
+
+                guildId:
+                    data.guildId
+            });
+
+            return;
+        }
 
         const member =
             await guild.members.fetch(
                 data.userId
-            );
-
-        if (!member) return;
+            ).catch(() => null);
 
         /**
-         * Restore roles
+         * User no longer exists
+         * in the guild.
+         *
+         * Remove stale isolation data.
          */
+
+        if (!member) {
+
+            await IsolatedUser.deleteOne({
+
+                userId:
+                    data.userId,
+
+                guildId:
+                    data.guildId
+            });
+
+            return;
+        }
+
+        /**
+         * Restore exact previous roles
+         *
+         * This also removes the
+         * Quarantine role because
+         * it was never stored in data.roles.
+         */
+
         await member.roles.set(
             data.roles
         );
 
         /**
          * Delete isolation data
+         * only after successful
+         * restoration.
          */
+
         await IsolatedUser.deleteOne({
 
             userId:
@@ -95,6 +183,14 @@ async function restoreUser(client, data) {
 
     } catch (error) {
 
+        /**
+         * Keep database record if
+         * restoration fails.
+         *
+         * This prevents Guardian from
+         * losing the saved role snapshot.
+         */
+
         console.error(
 
             "[Isolation Restore Error]",
@@ -104,4 +200,12 @@ async function restoreUser(client, data) {
     }
 }
 
+/**
+ * Export startup restoration
+ * and live scheduling.
+ */
+
 module.exports = restoreIsolation;
+
+module.exports.scheduleRestore =
+    scheduleRestore;
