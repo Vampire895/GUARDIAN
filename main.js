@@ -316,9 +316,7 @@ client.on(
 
                 allowedMentions: {
 
-                    users: [
-                        mentionedUser.id
-                    ]
+                   parse: []
 
                 }
 
