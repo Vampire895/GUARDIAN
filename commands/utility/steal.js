@@ -53,6 +53,97 @@ function extractEmoji(
 
 
 /**
+ * Extract emoji from Discord CDN URL
+ *
+ * Supports:
+ * /emojis/ID.png
+ * /emojis/ID.gif
+ * /emojis/ID.webp
+ */
+function extractEmojiUrl(
+    text
+) {
+
+    if (!text) {
+        return null;
+    }
+
+    const match =
+        text.match(
+            /https?:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/emojis\/(\d+)\.(gif|png|webp)(?:\?[^\s]*)?/i
+        );
+
+    if (!match) {
+        return null;
+    }
+
+    return {
+
+        id:
+            match[1],
+
+        name:
+            `stolen_${match[1]}`,
+
+        animated:
+            match[2].toLowerCase() === "gif",
+
+        type:
+            "emoji"
+    };
+}
+
+
+/**
+ * Extract sticker from Discord CDN URL
+ *
+ * Supports:
+ * /stickers/ID.png
+ * /stickers/ID.gif
+ * /stickers/ID.webp
+ * /stickers/ID.json
+ */
+function extractStickerUrl(
+    text
+) {
+
+    if (!text) {
+        return null;
+    }
+
+    const match =
+        text.match(
+            /https?:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/stickers\/(\d+)\.(png|gif|webp|json)(?:\?[^\s]*)?/i
+        );
+
+    if (!match) {
+        return null;
+    }
+
+    const extension =
+        match[2].toLowerCase();
+
+    return {
+
+        id:
+            match[1],
+
+        name:
+            `stolen_${match[1]}`,
+
+        url:
+            text,
+
+        format:
+            extension,
+
+        type:
+            "sticker"
+    };
+}
+
+
+/**
  * Get emoji/sticker from
  * the replied message.
  */
@@ -166,12 +257,42 @@ async function execute(
      * 1. Command argument
      * 2. Replied message
      */
+    const input =
+        args.join(" ").trim();
+
     let expression =
         extractEmoji(
-            args.join(" ")
+            input
         );
 
 
+    /**
+     * Direct emoji URL
+     */
+    if (!expression) {
+
+        expression =
+            extractEmojiUrl(
+                input
+            );
+    }
+
+
+    /**
+     * Direct sticker URL
+     */
+    if (!expression) {
+
+        expression =
+            extractStickerUrl(
+                input
+            );
+    }
+
+
+    /**
+     * Reply detection
+     */
     if (!expression) {
 
         expression =
@@ -202,7 +323,9 @@ async function execute(
 
 \`.steal <:emoji:ID>\`
 
-or **reply to a custom emoji/sticker** with:
+or send its Discord CDN URL.
+
+You can also **reply to a custom emoji/sticker** with:
 
 \`.steal\``
 
@@ -226,6 +349,35 @@ or **reply to a custom emoji/sticker** with:
 
 
     /**
+     * Format text
+     */
+    let formatText =
+        "Static";
+
+
+    if (
+        expression.type === "emoji"
+    ) {
+
+        formatText =
+            expression.animated
+                ? "✨ Animated"
+                : "Static";
+
+    } else {
+
+        formatText =
+            expression.format === 2 ||
+            expression.format === "gif" ||
+            expression.format === "apng"
+
+                ? "✨ Animated"
+
+                : "Static";
+    }
+
+
+    /**
      * Preview embed
      */
     const embed =
@@ -242,6 +394,8 @@ or **reply to a custom emoji/sticker** with:
 **Name:** \`${expression.name}\`
 
 **Type:** ${typeText}
+
+**Format:** ${formatText}
 
 Choose how you want to add it to this server.`
 
@@ -279,9 +433,6 @@ Choose how you want to add it to this server.`
 
     /**
      * Temporary preview buttons
-     *
-     * Actual handlers will be added
-     * in the next step.
      */
     const row = {
 
@@ -296,7 +447,7 @@ Choose how you want to add it to this server.`
                 style: 1,
 
                 custom_id:
-                    `utility:steal:emoji:${expression.id}`,
+                    `utility:steal:emoji:${expression.id}:${expression.animated ? "animated" : "static"}`,
 
                 label:
                     "😀 Steal as Emoji"
@@ -310,7 +461,7 @@ Choose how you want to add it to this server.`
                 style: 2,
 
                 custom_id:
-                    `utility:steal:sticker:${expression.id}`,
+                    `utility:steal:sticker:${expression.id}:${expression.format || "unknown"}`,
 
                 label:
                     "🖼️ Steal as Sticker"

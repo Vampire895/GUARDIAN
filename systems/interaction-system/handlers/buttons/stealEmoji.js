@@ -17,10 +17,41 @@ module.exports = {
     ) {
 
         /**
-         * Get emoji ID
+         * Get emoji information
+         *
+         * Format:
+         * utility:steal:emoji:ID:animated
+         * utility:steal:emoji:ID:static
          */
-        const emojiId =
+        const data =
             parsed.data;
+
+        if (!data) {
+
+            return interaction.reply({
+
+                content:
+                    "❌ Emoji information is missing.",
+
+                ephemeral: true
+
+            });
+        }
+
+
+        /**
+         * Separate emoji ID
+         * from animation type
+         */
+        const parts =
+            data.split(":");
+
+        const emojiId =
+            parts[0];
+
+        const animationType =
+            parts[1];
+
 
         if (!emojiId) {
 
@@ -36,13 +67,19 @@ module.exports = {
 
 
         /**
-         * Find the emoji from
-         * the original message data.
-         *
-         * Discord CDN is used directly.
+         * Preserve original emoji format
+         */
+        const extension =
+            animationType === "animated"
+                ? "gif"
+                : "png";
+
+
+        /**
+         * Discord CDN
          */
         const emojiUrl =
-            `https://cdn.discordapp.com/emojis/${emojiId}.png?size=256&quality=lossless`;
+            `https://cdn.discordapp.com/emojis/${emojiId}.${extension}?size=256&quality=lossless`;
 
 
         /**
@@ -81,7 +118,13 @@ module.exports = {
 
 **Name:** \`${emoji.name}\`
 
-**ID:** \`${emoji.id}\``
+**ID:** \`${emoji.id}\`
+
+**Type:** ${
+    animationType === "animated"
+        ? "✨ Animated"
+        : "Static"
+}`
 
                         )
 

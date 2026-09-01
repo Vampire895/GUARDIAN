@@ -115,11 +115,11 @@ for (const folder of commandFolders) {
             `./commands/${folder}/${file}`
         );
 
-       /**
- * Store command category
- */
-command.category =
-    folder.toLowerCase();
+        /**
+         * Store command category
+         */
+        command.category =
+            folder.toLowerCase();
 
         /**
          * Validate command
@@ -128,7 +128,7 @@ command.category =
 
             console.warn(
 
-`[COMMAND LOADER] ${file} missing name.`
+                `[COMMAND LOADER] ${file} missing name.`
             );
 
             continue;
@@ -170,7 +170,7 @@ command.category =
 
                     console.warn(
 
-`[COMMAND LOADER] Duplicate alias detected: ${alias}`
+                        `[COMMAND LOADER] Duplicate alias detected: ${alias}`
                     );
 
                     continue;
@@ -252,6 +252,69 @@ client.on(
 
         if (authorAFK) {
 
+            const duration =
+                Math.floor(
+                    (Date.now() - authorAFK.since)
+                    / 1000
+                );
+
+            /**
+             * Convert duration into
+             * days, hours, minutes, seconds
+             */
+            const days =
+                Math.floor(
+                    duration / 86400
+                );
+
+            const hours =
+                Math.floor(
+                    (duration % 86400) / 3600
+                );
+
+            const minutes =
+                Math.floor(
+                    (duration % 3600) / 60
+                );
+
+            const seconds =
+                duration % 60;
+
+            const durationParts = [];
+
+            if (days > 0) {
+
+                durationParts.push(
+                    `${days}d`
+                );
+            }
+
+            if (hours > 0) {
+
+                durationParts.push(
+                    `${hours}h`
+                );
+            }
+
+            if (minutes > 0) {
+
+                durationParts.push(
+                    `${minutes}m`
+                );
+            }
+
+            if (seconds > 0) {
+
+                durationParts.push(
+                    `${seconds}s`
+                );
+            }
+
+            const durationText =
+                durationParts.length > 0
+                    ? durationParts.join(" ")
+                    : "0s";
+
             removeAFK(
                 message.author.id
             );
@@ -260,7 +323,7 @@ client.on(
 
                 content:
                     `👋 Welcome back, <@${message.author.id}>! ` +
-                    `Your AFK status has been removed.`,
+                    `You were AFK for **${durationText}**.`,
 
                 allowedMentions: {
 
@@ -294,18 +357,62 @@ client.on(
                     / 1000
                 );
 
+            /**
+             * Convert duration into
+             * days, hours, minutes, seconds
+             */
+            const days =
+                Math.floor(
+                    duration / 86400
+                );
+
+            const hours =
+                Math.floor(
+                    (duration % 86400) / 3600
+                );
+
             const minutes =
                 Math.floor(
-                    duration / 60
+                    (duration % 3600) / 60
                 );
 
             const seconds =
                 duration % 60;
 
+            const durationParts = [];
+
+            if (days > 0) {
+
+                durationParts.push(
+                    `${days}d`
+                );
+            }
+
+            if (hours > 0) {
+
+                durationParts.push(
+                    `${hours}h`
+                );
+            }
+
+            if (minutes > 0) {
+
+                durationParts.push(
+                    `${minutes}m`
+                );
+            }
+
+            if (seconds > 0) {
+
+                durationParts.push(
+                    `${seconds}s`
+                );
+            }
+
             const durationText =
-                minutes > 0
-                    ? `${minutes}m ${seconds}s`
-                    : `${seconds}s`;
+                durationParts.length > 0
+                    ? durationParts.join(" ")
+                    : "0s";
 
             await message.reply({
 
@@ -316,7 +423,7 @@ client.on(
 
                 allowedMentions: {
 
-                   parse: []
+                    parse: []
 
                 }
 
