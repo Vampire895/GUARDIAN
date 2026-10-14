@@ -23,14 +23,12 @@ async function renderLoggingPanel({ interaction }) {
         : {};
 
     const typeLabels = {
-        all: "All Commands",
         moderation: "Moderation",
         security: "Security",
         verification: "Verification",
         automation: "Automation",
-        utility: "Utility",
+        utility: "Utilities",
         test: "Test",
-        nick: "Nick Command"
     };
 
     const configuredRoutes = Object.entries(categories)
