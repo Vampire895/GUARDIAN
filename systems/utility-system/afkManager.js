@@ -1,81 +1,99 @@
 /**
  * AFK Manager
  *
- * Stores temporary AFK states in memory.
+ * Active AFK states are persisted in MongoDB, not held in a RAM Map.
+ * Each user has at most one active record per server. Breaking AFK
+ * permanently deletes that record; no history or event log is stored.
  */
 
-const afkUsers = new Map();
+const AFK = require("../../database/models/AFK");
 
 /**
- * Set user AFK
+ * Set or refresh a user's AFK state for a server.
  */
-function setAFK(
-    userId,
-    reason
-) {
+async function setAFK(guildId, userId, reason) {
+    if (!guildId || !userId) {
+        throw new Error("AFK requires both a guild ID and a user ID.");
+    }
 
-    afkUsers.set(
-        userId,
+    const since = new Date();
+
+    return AFK.findOneAndUpdate(
+        { guildId: String(guildId), userId: String(userId) },
         {
-            reason,
-            since: Date.now()
+            $set: {
+                reason: reason || "AFK",
+                since
+            }
+        },
+        {
+            upsert: true,
+            new: true,
+            runValidators: true,
+            setDefaultsOnInsert: true
         }
-    );
+    ).lean();
 }
 
 /**
- * Get user's AFK state
+ * Get the user's current AFK state in the specified server.
  */
-function getAFK(
-    userId
-) {
+async function getAFK(guildId, userId) {
+    if (!guildId || !userId) return null;
 
-    return afkUsers.get(
-        userId
-    );
+    const afk = await AFK.findOne({
+        guildId: String(guildId),
+        userId: String(userId)
+    }).lean();
+
+    if (!afk) return null;
+
+    // Keep the previous manager's millisecond timestamp interface for callers.
+    return {
+        ...afk,
+        since: new Date(afk.since).getTime()
+    };
 }
 
 /**
- * Check whether user is AFK
+ * Check whether the user is AFK in the specified server.
  */
-function isAFK(
-    userId
-) {
+async function isAFK(guildId, userId) {
+    if (!guildId || !userId) return false;
 
-    return afkUsers.has(
-        userId
-    );
+    return Boolean(await AFK.exists({
+        guildId: String(guildId),
+        userId: String(userId)
+    }));
 }
 
 /**
- * Remove AFK
+ * Permanently delete the active AFK record when the user returns.
  */
-function removeAFK(
-    userId
-) {
+async function removeAFK(guildId, userId) {
+    if (!guildId || !userId) return false;
 
-    return afkUsers.delete(
-        userId
-    );
+    const result = await AFK.deleteOne({
+        guildId: String(guildId),
+        userId: String(userId)
+    });
+
+    return result.deletedCount > 0;
 }
 
 /**
- * Get all AFK users
+ * Get active AFK records. This returns a database query result, not a RAM Map.
  */
-function getAllAFK() {
+async function getAllAFK(guildId) {
+    const filter = guildId ? { guildId: String(guildId) } : {};
 
-    return afkUsers;
+    return AFK.find(filter).lean();
 }
 
 module.exports = {
-
     setAFK,
-
     getAFK,
-
     isAFK,
-
     removeAFK,
-
     getAllAFK
 };
