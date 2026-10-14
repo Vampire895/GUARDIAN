@@ -51,7 +51,7 @@ const setupSecuritySystem = require(
 /**
  * Connect database
  */
-connectDB();
+const databaseReady = connectDB();
 
 if (!config.token) {
     console.error("[Startup Error] BOT_TOKEN is missing from .env.");
@@ -243,195 +243,102 @@ client.on(
          * --------------------------------
          * AFK SYSTEM
          * --------------------------------
+         *
+         * AFK is server-specific and stored in MongoDB.
+         * If a database operation fails, don't crash or block normal commands.
          */
-
-        /**
-         * Remove author's AFK when
-         * they send a message.
-         */
-        const authorAFK =
-            getAFK(
-                message.author.id
-            );
-
-        if (authorAFK) {
-
-            const duration =
-                Math.floor(
-                    (Date.now() - authorAFK.since)
-                    / 1000
+        if (message.guildId) {
+            try {
+                // Remove the author's AFK as soon as they send any message.
+                const authorAFK = await getAFK(
+                    message.guildId,
+                    message.author.id
                 );
 
-            /**
-             * Convert duration into
-             * days, hours, minutes, seconds
-             */
-            const days =
-                Math.floor(
-                    duration / 86400
-                );
+                if (authorAFK) {
+                    const duration = Math.max(
+                        0,
+                        Math.floor((Date.now() - authorAFK.since) / 1000)
+                    );
 
-            const hours =
-                Math.floor(
-                    (duration % 86400) / 3600
-                );
+                    const days = Math.floor(duration / 86400);
+                    const hours = Math.floor((duration % 86400) / 3600);
+                    const minutes = Math.floor((duration % 3600) / 60);
+                    const seconds = duration % 60;
+                    const durationParts = [];
 
-            const minutes =
-                Math.floor(
-                    (duration % 3600) / 60
-                );
+                    if (days > 0) durationParts.push(`${days}d`);
+                    if (hours > 0) durationParts.push(`${hours}h`);
+                    if (minutes > 0) durationParts.push(`${minutes}m`);
+                    if (seconds > 0) durationParts.push(`${seconds}s`);
 
-            const seconds =
-                duration % 60;
+                    const durationText =
+                        durationParts.length > 0
+                            ? durationParts.join(" ")
+                            : "0s";
 
-            const durationParts = [];
-
-            if (days > 0) {
-
-                durationParts.push(
-                    `${days}d`
-                );
-            }
-
-            if (hours > 0) {
-
-                durationParts.push(
-                    `${hours}h`
-                );
-            }
-
-            if (minutes > 0) {
-
-                durationParts.push(
-                    `${minutes}m`
-                );
-            }
-
-            if (seconds > 0) {
-
-                durationParts.push(
-                    `${seconds}s`
-                );
-            }
-
-            const durationText =
-                durationParts.length > 0
-                    ? durationParts.join(" ")
-                    : "0s";
-
-            removeAFK(
-                message.author.id
-            );
-
-            await message.reply({
-
-                content:
-                    `👋 Welcome back, <@${message.author.id}>! ` +
-                    `You were AFK for **${durationText}**.`,
-
-                allowedMentions: {
-
-                    users: [
+                    // Delete before sending the welcome-back message so the
+                    // record is gone even if Discord rejects the reply.
+                    await removeAFK(
+                        message.guildId,
                         message.author.id
-                    ]
+                    );
 
+                    await message.reply({
+                        content:
+                            `👋 Welcome back, <@${message.author.id}>! ` +
+                            `You were AFK for **${durationText}**.`,
+                        allowedMentions: {
+                            users: [message.author.id]
+                        }
+                    }).catch(() => null);
                 }
 
-            }).catch(() => null);
-        }
+                // Notify about AFK mentions without pinging the AFK users.
+                for (const mentionedUser of message.mentions.users.values()) {
+                    if (mentionedUser.id === message.author.id) continue;
 
-        /**
-         * Check mentions for AFK users
-         */
-        for (
-            const mentionedUser
-            of message.mentions.users.values()
-        ) {
+                    const afk = await getAFK(
+                        message.guildId,
+                        mentionedUser.id
+                    );
 
-            const afk =
-                getAFK(
-                    mentionedUser.id
-                );
+                    if (!afk) continue;
 
-            if (!afk) continue;
+                    const duration = Math.max(
+                        0,
+                        Math.floor((Date.now() - afk.since) / 1000)
+                    );
 
-            const duration =
-                Math.floor(
-                    (Date.now() - afk.since)
-                    / 1000
-                );
+                    const days = Math.floor(duration / 86400);
+                    const hours = Math.floor((duration % 86400) / 3600);
+                    const minutes = Math.floor((duration % 3600) / 60);
+                    const seconds = duration % 60;
+                    const durationParts = [];
 
-            /**
-             * Convert duration into
-             * days, hours, minutes, seconds
-             */
-            const days =
-                Math.floor(
-                    duration / 86400
-                );
+                    if (days > 0) durationParts.push(`${days}d`);
+                    if (hours > 0) durationParts.push(`${hours}h`);
+                    if (minutes > 0) durationParts.push(`${minutes}m`);
+                    if (seconds > 0) durationParts.push(`${seconds}s`);
 
-            const hours =
-                Math.floor(
-                    (duration % 86400) / 3600
-                );
+                    const durationText =
+                        durationParts.length > 0
+                            ? durationParts.join(" ")
+                            : "0s";
 
-            const minutes =
-                Math.floor(
-                    (duration % 3600) / 60
-                );
-
-            const seconds =
-                duration % 60;
-
-            const durationParts = [];
-
-            if (days > 0) {
-
-                durationParts.push(
-                    `${days}d`
-                );
-            }
-
-            if (hours > 0) {
-
-                durationParts.push(
-                    `${hours}h`
-                );
-            }
-
-            if (minutes > 0) {
-
-                durationParts.push(
-                    `${minutes}m`
-                );
-            }
-
-            if (seconds > 0) {
-
-                durationParts.push(
-                    `${seconds}s`
-                );
-            }
-
-            const durationText =
-                durationParts.length > 0
-                    ? durationParts.join(" ")
-                    : "0s";
-
-            await message.reply({
-
-                content:
-                    `💤 <@${mentionedUser.id}> is currently AFK.\n` +
-                    `📝 **Reason:** ${afk.reason}\n` +
-                    `⏱️ **AFK for:** ${durationText}`,
-
-                allowedMentions: {
-
-                    parse: []
-
+                    await message.reply({
+                        content:
+                            `💤 <@${mentionedUser.id}> is currently AFK.\n` +
+                            `📝 **Reason:** ${afk.reason}\n` +
+                            `⏱️ **AFK for:** ${durationText}`,
+                        allowedMentions: {
+                            parse: []
+                        }
+                    }).catch(() => null);
                 }
-
-            }).catch(() => null);
+            } catch (error) {
+                console.error("[AFK] Database operation failed:", error);
+            }
         }
 
         /**
@@ -504,10 +411,12 @@ client.on(
 /**
  * Login
  */
-client.login(config.token).catch((error) => {
-    console.error("[Discord Login Error]", error);
-    process.exitCode = 1;
-});
+databaseReady
+    .then(() => client.login(config.token))
+    .catch((error) => {
+        console.error("[Startup Error] Database connection failed; bot login cancelled.", error);
+        process.exitCode = 1;
+    });
 
 client.on("error", (error) => {
     console.error("[Discord Client Error]", error);
