@@ -1,14 +1,12 @@
 /**
- * Logging categories.
+ * Supported command-logging categories.
+ * Keep values aligned with command folder names and saveLogConfig validation.
  */
-
 module.exports = [
-
     "moderation",
     "security",
+    "verification",
     "automation",
-    "messages",
-    "members",
-    "voice",
-    "server"
+    "utility",
+    "test"
 ];
