@@ -1,93 +1,12 @@
-const getLogConfig = require(
-    "./services/getLogConfig"
-);
-
 /**
- * Central logging dispatcher.
+ * Legacy action-log compatibility shim.
+ *
+ * V1 intentionally logs command invocations only. Existing moderation commands
+ * may still call logAction after completing an action; those calls must not
+ * create a second, action-based stream in the new command-only Logging Center.
  */
-
-async function logAction({
-
-    guild,
-
-    category,
-
-    embeds = [],
-
-    content = null
-
-}) {
-
-    try {
-
-        /**
-         * Validate guild
-         */
-        if (!guild) return;
-
-        /**
-         * Get logging config
-         */
-        const config =
-            await getLogConfig(
-                guild.id
-            );
-
-        /**
-         * Validate category
-         */
-        const categoryConfig =
-            config.categories[category];
-
-        if (!categoryConfig) {
-            return;
-        }
-
-        /**
-         * Logging disabled
-         */
-        if (!categoryConfig.enabled) {
-            return;
-        }
-
-        /**
-         * Missing channel
-         */
-        if (!categoryConfig.channelId) {
-            return;
-        }
-
-        /**
-         * Resolve channel
-         */
-        const channel =
-            guild.channels.cache.get(
-                categoryConfig.channelId
-            );
-
-        if (!channel) {
-            return;
-        }
-
-        /**
-         * Send log
-         */
-        await channel.send({
-
-            content,
-
-            embeds
-        });
-
-    } catch (error) {
-
-        console.error(
-
-            "[Logging Dispatcher Error]",
-
-            error
-        );
-    }
+async function logAction() {
+    return;
 }
 
 module.exports = logAction;
