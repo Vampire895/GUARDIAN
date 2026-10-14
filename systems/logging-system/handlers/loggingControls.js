@@ -19,6 +19,7 @@ const TYPE_OPTIONS = [
     { label: "All Commands", value: "all", description: "Log every command used through GUARDIAN." },
     { label: "Moderation", value: "moderation", description: "Log commands in the moderation category." },
     { label: "Security", value: "security", description: "Log commands in the security category." },
+    { label: "Verification", value: "verification", description: "Log commands in the verification category." },
     { label: "Automation", value: "automation", description: "Log commands in the automation category." },
     { label: "Utility", value: "utility", description: "Log commands in the utility category." },
     { label: "Test", value: "test", description: "Log commands in the test category." },
@@ -88,7 +89,7 @@ async function renderSetup(interaction) {
     const embed = buildControlEmbed({
         guild: interaction.guild,
         title: "📜 Configure Command Logging",
-        description: `Choose which GUARDIAN commands to log and where to send them.\n\n**Logging type:** ${typeLabel}\n**Channel:** ${channelLabel}\n\nChanges stay temporary until you click **Save**.`
+        description: `Add or update one logging route without changing any other category.\n\n**Route to configure:** ${typeLabel}\n**Channel:** ${channelLabel}\n\nEach category is saved independently. Changes stay temporary until you click **Save**.`
     });
 
     const typeSelect = new StringSelectMenuBuilder()
