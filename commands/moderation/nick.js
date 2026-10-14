@@ -206,10 +206,7 @@ ${newNick}`
     /**
      * Send success response
      */
-    await message.reply({
-
-        embeds: [successEmbed]
-    });
+    await message.reply({ embeds: [createSuccessEmbed("Nickname updated successfully.")] });
 
     /**
      * Moderation log embed
