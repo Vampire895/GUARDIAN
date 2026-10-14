@@ -16,14 +16,12 @@ const saveLogConfig = require("../services/saveLogConfig");
 const renderLoggingPanel = require("../../control-system/panels/renderLoggingPanel");
 
 const TYPE_OPTIONS = [
-    { label: "All Commands", value: "all", description: "Log every command used through GUARDIAN." },
     { label: "Moderation", value: "moderation", description: "Log commands in the moderation category." },
     { label: "Security", value: "security", description: "Log commands in the security category." },
     { label: "Verification", value: "verification", description: "Log commands in the verification category." },
     { label: "Automation", value: "automation", description: "Log commands in the automation category." },
-    { label: "Utility", value: "utility", description: "Log commands in the utility category." },
-    { label: "Test", value: "test", description: "Log commands in the test category." },
-    { label: "Nick Command", value: "nick", description: "Log only the nick command." }
+    { label: "Utilities", value: "utility", description: "Log commands in the utilities category." },
+    { label: "Test", value: "test", description: "Log commands in the test category." }
 ];
 
 function isAdministrator(interaction) {
@@ -89,7 +87,7 @@ async function renderSetup(interaction) {
     const embed = buildControlEmbed({
         guild: interaction.guild,
         title: "📜 Configure Command Logging",
-        description: `Add or update one logging route without changing any other category.\n\n**Route to configure:** ${typeLabel}\n**Channel:** ${channelLabel}\n\nEach category is saved independently. Changes stay temporary until you click **Save**.`
+        description: `Choose one category and its exclusive logging destination. If no destination is saved for a category, GUARDIAN sends no logging embed for that category.\n\n**Route to configure:** ${typeLabel}\n**Channel:** ${channelLabel}\n\nOther categories stay unchanged. Changes stay temporary until you click **Save**.`
     });
 
     const typeSelect = new StringSelectMenuBuilder()
