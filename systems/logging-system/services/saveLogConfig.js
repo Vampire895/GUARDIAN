@@ -1,21 +1,31 @@
 const LogConfig = require("../../../database/models/LogConfig");
+const getLogConfig = require("./getLogConfig");
 
 /**
- * Replace the guild's previous logging configuration with the newly saved one.
- * The old category-based configuration is explicitly removed.
+ * Add or update only the selected logging route.
+ * Existing categories and their destinations are preserved.
  */
 async function saveLogConfig({ guildId, type, channelId, enabled = true }) {
+    const current = await getLogConfig(guildId);
+    const categories = current.categories && typeof current.categories === "object"
+        ? { ...current.categories }
+        : {};
+
+    if (enabled && type && channelId) {
+        categories[type] = {
+            ...(categories[type] || {}),
+            channelId,
+            enabled: true
+        };
+    }
+
     return LogConfig.findOneAndUpdate(
         { guildId },
         {
             $set: {
                 guildId,
                 enabled,
-                type,
-                channelId
-            },
-            $unset: {
-                categories: ""
+                categories
             }
         },
         {
