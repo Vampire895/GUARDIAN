@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
 
 /**
- * Per-guild command logging settings.
- * Each category keeps its own destination in categories, so saving one route
- * never removes another route. enabled is the guild-wide logging switch.
+ * Logging configuration only. Individual log events are never persisted.
+ * categories stores each category's destination, e.g.
+ * { moderation: { channelId, enabled }, security: { channelId, enabled } }.
  */
 const logConfigSchema = new mongoose.Schema({
     guildId: {
@@ -11,16 +11,16 @@ const logConfigSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    // Global kill switch. Saved category routes remain intact when disabled.
     enabled: {
         type: Boolean,
         default: false
     },
-    // Map-like plain object: { moderation: { channelId, enabled }, security: ... }
     categories: {
         type: mongoose.Schema.Types.Mixed,
-        default: undefined
+        default: () => ({})
     },
-    // Legacy fields retained for safe migration of older single-route configs.
+    // Legacy fields retained temporarily so older documents can be migrated.
     type: {
         type: String,
         default: null
