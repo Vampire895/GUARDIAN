@@ -264,8 +264,7 @@ ${message.channel}`
      * Send success response
      */
     await message.reply({
-
-        embeds: [successEmbed]
+        embeds: [createSuccessEmbed("Channel locked successfully.")]
     });
 
     /**
