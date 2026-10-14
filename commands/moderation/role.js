@@ -358,10 +358,7 @@ ${message.author.tag}`
      * Send success response
      */
 
-    await message.reply({
-
-        embeds: [successEmbed]
-    });
+    await message.reply({ embeds: [createSuccessEmbed("Role action completed successfully.")] });
 
     /**
      * Moderation log embed
