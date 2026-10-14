@@ -21,6 +21,11 @@ const logConfigSchema = new mongoose.Schema({
     channelId: {
         type: String,
         default: null
+    },
+    // Retained in the schema only so the migration can explicitly unset legacy data.
+    categories: {
+        type: mongoose.Schema.Types.Mixed,
+        default: undefined
     }
 }, {
     timestamps: true
