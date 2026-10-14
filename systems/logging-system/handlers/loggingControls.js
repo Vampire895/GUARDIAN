@@ -127,7 +127,9 @@ async function openConfigSetup(interaction) {
     if (!session) {
         return interaction.reply({ content: "❌ Control session expired. Reopen `.control` and try again.", ephemeral: true });
     }
-    session.loggingDraft = null;
+    // Reconfiguration also starts a fresh draft. The live saved config remains
+    // untouched until both fields are selected and Save is clicked.
+    session.loggingDraft = { type: null, channelId: null };
     return renderSetup(interaction);
 }
 
