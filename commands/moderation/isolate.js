@@ -545,10 +545,7 @@ ${reason}`
      * Send success response
      */
 
-    await message.reply({
-
-        embeds: [successEmbed]
-    });
+    await message.reply({ embeds: [createSuccessEmbed("User isolated successfully.")] });
 
     /**
      * Moderation log embed
