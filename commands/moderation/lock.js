@@ -173,10 +173,7 @@ Locked Channels:
 ${lockedCount}`
             );
 
-        await message.reply({
-
-            embeds: [successEmbed]
-        });
+        await message.reply({ embeds: [createSuccessEmbed("Channel lock completed successfully.")] });
 
         /**
          * Log embed
