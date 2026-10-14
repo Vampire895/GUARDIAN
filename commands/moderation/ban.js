@@ -181,10 +181,7 @@ ${caseId}`
     /**
      * Send success response
      */
-    await message.reply({
-
-        embeds: [successEmbed]
-    });
+    await message.reply({ embeds: [createSuccessEmbed("Ban completed successfully.")] });
 
     /**
      * Moderation log embed
