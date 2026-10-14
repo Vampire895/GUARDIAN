@@ -1,12 +1,8 @@
 /**
- * logging-system/index.js
- * Loads logging interaction handlers.
+ * Load the Logging Center interaction handlers.
+ * Legacy category handlers are intentionally not registered: logging now
+ * uses one staged type/channel configuration saved only by an explicit Save.
  */
-
-require("./handlers/logCategoryButton");
-
-require("./handlers/logToggleButton");
-
-require("./handlers/logChannelSelect");
+require("./handlers/loggingControls");
 
 console.log("[Logging System] Loaded.");
