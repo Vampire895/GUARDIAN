@@ -1,6 +1,5 @@
 const {
     StringSelectMenuBuilder,
-    ChannelSelectMenuBuilder,
     ChannelType,
     PermissionsBitField
 } = require("discord.js");
@@ -39,8 +38,30 @@ async function requireAdministrator(interaction) {
     return false;
 }
 
-function getDraft(interaction) {
-    return getSession(interaction.message.id)?.loggingDraft || null;
+
+const CHANNELS_PER_PAGE = 25;
+
+async function getAvailableLogChannels(guild) {
+    const channels = await guild.channels.fetch();
+    const botMember = guild.members.me;
+    if (!botMember) return [];
+
+    return [...channels.values()]
+        .filter(channel => {
+            if (![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) {
+                return false;
+            }
+            const permissions = channel.permissionsFor(botMember);
+            return Boolean(permissions
+                && permissions.has(PermissionsBitField.Flags.ViewChannel)
+                && permissions.has(PermissionsBitField.Flags.SendMessages));
+        })
+        .sort((a, b) => {
+            const categoryA = a.parent?.position ?? -1;
+            const categoryB = b.parent?.position ?? -1;
+            if (categoryA !== categoryB) return categoryA - categoryB;
+            return a.position - b.position || a.name.localeCompare(b.name);
+        });
 }
 
 async function renderSetup(interaction) {
@@ -80,12 +101,35 @@ async function renderSetup(interaction) {
             default: option.value === draft.type
         })));
 
-    const channelSelect = new ChannelSelectMenuBuilder()
+    // Native channel selectors are filtered by the interacting user, not the bot.
+    // Build the options from channels where GUARDIAN itself can view and send messages.
+    const availableChannels = await getAvailableLogChannels(interaction.guild);
+    const pageCount = Math.max(1, Math.ceil(availableChannels.length / CHANNELS_PER_PAGE));
+    const requestedPage = Number.isInteger(draft.channelPage) ? draft.channelPage : 0;
+    const channelPage = Math.min(Math.max(requestedPage, 0), pageCount - 1);
+    draft.channelPage = channelPage;
+    const pageChannels = availableChannels.slice(
+        channelPage * CHANNELS_PER_PAGE,
+        (channelPage + 1) * CHANNELS_PER_PAGE
+    );
+
+    const channelSelect = new StringSelectMenuBuilder()
         .setCustomId("control:logging:channel")
         .setPlaceholder("Select logging channel")
         .setMinValues(1)
         .setMaxValues(1)
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement);
+        .addOptions(
+            pageChannels.length
+                ? pageChannels.map(channel => ({
+                    label: channel.name.slice(0, 100),
+                    value: channel.id,
+                    description: channel.parent?.name
+                        ? `Category: ${channel.parent.name}`.slice(0, 100)
+                        : (channel.type === ChannelType.GuildAnnouncement ? "Announcement channel" : "Text channel"),
+                    default: channel.id === draft.channelId
+                }))
+                : [{ label: "No channels available", value: "none", description: "GUARDIAN needs View Channel and Send Messages." }]
+        );
 
     const actionButtons = [];
     if (draft.type && draft.channelId) {
@@ -104,6 +148,18 @@ async function renderSetup(interaction) {
         components: [
             createActionRow([typeSelect]),
             createActionRow([channelSelect]),
+            ...(pageCount > 1 ? [createActionRow([
+                createSecondaryButton({
+                    customId: "control:logging:channel-page:prev",
+                    label: "◀ Previous",
+                    disabled: channelPage === 0
+                }),
+                createSecondaryButton({
+                    customId: "control:logging:channel-page:next",
+                    label: `Next ▶ (${channelPage + 1}/${pageCount})`,
+                    disabled: channelPage >= pageCount - 1
+                })
+            ])] : []),
             createActionRow(actionButtons)
         ]
     });
@@ -155,6 +211,9 @@ async function selectChannel(interaction) {
     }
 
     const channelId = interaction.values[0];
+    if (channelId === "none") {
+        return interaction.reply({ content: "❌ No channels are available where GUARDIAN can view and send messages.", ephemeral: true });
+    }
     const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
     const botMember = interaction.guild.members.me;
     const permissions = channel?.permissionsFor(botMember);
@@ -229,11 +288,30 @@ async function backToPanel(interaction) {
     return renderLoggingPanel({ interaction });
 }
 
+async function changeChannelPage(interaction, parsed) {
+    if (!await requireAdministrator(interaction)) return;
+    const session = getSession(interaction.message.id);
+    if (!session) {
+        return interaction.reply({ content: "❌ Control session expired. Reopen `.control` and try again.", ephemeral: true });
+    }
+
+    session.loggingDraft = session.loggingDraft || { type: null, channelId: null, channelPage: 0 };
+    const currentPage = Number.isInteger(session.loggingDraft.channelPage)
+        ? session.loggingDraft.channelPage
+        : 0;
+    session.loggingDraft.channelPage = parsed.data === "next"
+        ? currentPage + 1
+        : Math.max(0, currentPage - 1);
+
+    return renderSetup(interaction);
+}
+
 buttonRegistry.set("control:logging:enable", openEnableSetup);
 buttonRegistry.set("control:logging:config", openConfigSetup);
 buttonRegistry.set("control:logging:disable", disableLogging);
 buttonRegistry.set("control:logging:save", saveSetup);
 buttonRegistry.set("control:logging:back", backToPanel);
+buttonRegistry.set("control:logging:channel-page", changeChannelPage);
 
 selectMenuRegistry.set("control:logging:type", selectType);
 selectMenuRegistry.set("control:logging:channel", selectChannel);
