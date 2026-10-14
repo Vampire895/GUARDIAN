@@ -374,10 +374,7 @@ async function execute(message, args) {
     /**
      * Send success response
      */
-    await message.channel.send({
-
-        embeds: [successEmbed]
-    });
+    await message.channel.send({ embeds: [createSuccessEmbed("Messages deleted successfully.")] });
 
     /**
      * Moderation log embed
