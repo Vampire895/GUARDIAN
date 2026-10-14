@@ -109,7 +109,19 @@ async function renderSetup(interaction) {
     });
 }
 
-async function openSetup(interaction) {
+async function openEnableSetup(interaction) {
+    if (!await requireAdministrator(interaction)) return;
+    const session = getSession(interaction.message.id);
+    if (!session) {
+        return interaction.reply({ content: "❌ Control session expired. Reopen `.control` and try again.", ephemeral: true });
+    }
+    // Enabling starts with a blank draft; the Save button appears only after
+    // the administrator explicitly chooses both fields.
+    session.loggingDraft = { type: null, channelId: null };
+    return renderSetup(interaction);
+}
+
+async function openConfigSetup(interaction) {
     if (!await requireAdministrator(interaction)) return;
     const session = getSession(interaction.message.id);
     if (!session) {
@@ -215,8 +227,8 @@ async function backToPanel(interaction) {
     return renderLoggingPanel({ interaction });
 }
 
-buttonRegistry.set("control:logging:enable", openSetup);
-buttonRegistry.set("control:logging:config", openSetup);
+buttonRegistry.set("control:logging:enable", openEnableSetup);
+buttonRegistry.set("control:logging:config", openConfigSetup);
 buttonRegistry.set("control:logging:disable", disableLogging);
 buttonRegistry.set("control:logging:save", saveSetup);
 buttonRegistry.set("control:logging:back", backToPanel);
