@@ -173,10 +173,7 @@ Channel:
 ${message.channel}`
             );
 
-        await message.reply({
-
-            embeds: [successEmbed]
-        });
+        await message.reply({ embeds: [createSuccessEmbed("Slowmode updated successfully.")] });
 
         /**
          * Moderation log
