@@ -182,10 +182,7 @@ ${result.warnings.length}`
     /**
      * Send success response
      */
-    await message.reply({
-
-        embeds: [successEmbed]
-    });
+    await message.reply({ embeds: [createSuccessEmbed("Warning issued successfully.")] });
 
     /**
      * Moderation log embed
