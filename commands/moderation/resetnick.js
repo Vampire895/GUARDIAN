@@ -218,10 +218,7 @@ ${target.user.username}`
     /**
      * Send success response
      */
-    await message.reply({
-
-        embeds: [successEmbed]
-    });
+    await message.reply({ embeds: [createSuccessEmbed("Nickname reset successfully.")] });
 
     /**
      * Moderation log embed
