@@ -169,10 +169,7 @@ ${reason}`
     /**
      * Send success response
      */
-    await message.reply({
-
-        embeds: [successEmbed]
-    });
+    await message.reply({ embeds: [createSuccessEmbed("Unban completed successfully.")] });
 
     /**
      * Moderation log embed
