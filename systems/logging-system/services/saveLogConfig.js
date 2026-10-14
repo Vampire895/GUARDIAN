@@ -1,9 +1,19 @@
 const LogConfig = require("../../../database/models/LogConfig");
 const getLogConfig = require("./getLogConfig");
 
+const SUPPORTED_CATEGORIES = new Set([
+    "moderation",
+    "security",
+    "verification",
+    "utility",
+    "automation",
+    "test"
+]);
+
 /**
- * Add or update only the selected logging route.
- * Existing categories and their destinations are preserved.
+ * Save or update one category without modifying any other route.
+ * Passing enabled:false only toggles the global kill switch; it preserves all
+ * saved category destinations. No log events are stored by this service.
  */
 async function saveLogConfig({ guildId, type, channelId, enabled = true }) {
     const current = await getLogConfig(guildId);
@@ -11,10 +21,18 @@ async function saveLogConfig({ guildId, type, channelId, enabled = true }) {
         ? { ...current.categories }
         : {};
 
-    if (enabled && type && channelId) {
-        categories[type] = {
-            ...(categories[type] || {}),
-            channelId,
+    if (enabled) {
+        const normalizedType = String(type || "").toLowerCase();
+        if (!SUPPORTED_CATEGORIES.has(normalizedType)) {
+            throw new Error(`Unsupported logging category: ${normalizedType || "(empty)"}`);
+        }
+        if (!channelId) {
+            throw new Error("A destination channel is required to enable a logging category.");
+        }
+
+        categories[normalizedType] = {
+            ...(categories[normalizedType] || {}),
+            channelId: String(channelId),
             enabled: true
         };
     }
@@ -23,9 +41,12 @@ async function saveLogConfig({ guildId, type, channelId, enabled = true }) {
         { guildId },
         {
             $set: {
-                guildId,
-                enabled,
+                enabled: Boolean(enabled),
                 categories
+            },
+            $unset: {
+                type: "",
+                channelId: ""
             }
         },
         {
