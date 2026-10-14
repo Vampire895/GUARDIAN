@@ -1,7 +1,7 @@
 /**
  * Load the Logging Center interaction handlers.
- * Legacy category handlers are intentionally not registered: logging now
- * uses one staged type/channel configuration saved only by an explicit Save.
+ * Legacy category handlers are intentionally not registered. The active
+ * Logging Center stages one category/channel pair, then saves only that route.
  */
 require("./handlers/loggingControls");
 
