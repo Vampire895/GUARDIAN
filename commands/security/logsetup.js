@@ -1,27 +1,10 @@
-const buildLogSetupPanel = require(
-    "../../systems/logging-system/panels/buildLogSetupPanel"
-);
-
-const scheduleComponentTimeout = require(
-    "../../systems/interaction-system/utils/scheduleComponentTimeout"
-);
-
 module.exports = {
-
     name: "logsetup",
-
-    description: "Opens logging setup panel.",
+    description: "Directs administrators to the Logging Center.",
 
     async execute(message) {
-
-        const panel =
-            buildLogSetupPanel();
-
-        const sentMessage =
-            await message.reply(panel);
-
-        scheduleComponentTimeout({
-            message: sentMessage
+        return message.reply({
+            content: "📜 Logging is now managed from `.control` → **Logging**. Use that panel to configure command logging."
         });
     }
 };
