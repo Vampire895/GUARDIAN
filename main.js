@@ -31,6 +31,10 @@ const loggingSystem = require(
     "./systems/logging-system"
 );
 
+const logCommandUse = require(
+    "./systems/logging-system/services/logCommandUse"
+);
+
 const controlSystem = require(
     "./systems/control-system"
 );
@@ -463,6 +467,13 @@ client.on(
             );
 
         if (!command) return;
+
+        // Record the command invocation without storing its arguments.
+        void logCommandUse({
+            message,
+            commandName,
+            category: command.category
+        });
 
         try {
 
