@@ -175,10 +175,7 @@ Unlocked Channels:
 ${unlockedCount}`
             );
 
-        await message.reply({
-
-            embeds: [successEmbed]
-        });
+        await message.reply({ embeds: [createSuccessEmbed("Channel unlock completed successfully.")] });
 
         /**
          * Moderation log
