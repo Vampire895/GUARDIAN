@@ -6,7 +6,7 @@ const getLogConfig = require("../../logging-system/services/getLogConfig");
 const { PermissionsBitField } = require("discord.js");
 
 /**
- * Render the Logging Center home panel.
+ * Render the Logging Center home panel with every saved independent route.
  */
 async function renderLoggingPanel({ interaction }) {
     if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.Administrator)) {
@@ -18,20 +18,34 @@ async function renderLoggingPanel({ interaction }) {
 
     const config = await getLogConfig(interaction.guild.id);
     const enabled = config.enabled === true;
+    const categories = config.categories && typeof config.categories === "object"
+        ? config.categories
+        : {};
 
     const typeLabels = {
         all: "All Commands",
         moderation: "Moderation",
         security: "Security",
+        verification: "Verification",
         automation: "Automation",
         utility: "Utility",
         test: "Test",
         nick: "Nick Command"
     };
 
-    const description = enabled
-        ? `**Status:** 🟢 Enabled\n**Logging type:** ${typeLabels[config.type] || config.type || "Not configured"}\n**Channel:** ${config.channelId ? `<#${config.channelId}>` : "Not configured"}\n\nGUARDIAN command usage will be sent to the selected channel.`
-        : `**Status:** 🔴 Disabled\n\nEnable command logging to choose a command type and a channel.\n\nOnly commands used through GUARDIAN are logged in this version.`;
+    const configuredRoutes = Object.entries(categories)
+        .filter(([, route]) => route?.channelId)
+        .sort(([a], [b]) => a.localeCompare(b));
+
+    const routeSummary = configuredRoutes.length
+        ? configuredRoutes.map(([type, route]) =>
+            `• **${typeLabels[type] || type}** → <#${route.channelId}>`
+        ).join("\n")
+        : "No category routes configured yet.";
+
+    const description = `**Status:** ${enabled ? "🟢 Enabled" : "🔴 Disabled"}\n\n**Saved logging routes**\n${routeSummary}\n\n${enabled
+        ? "Matching GUARDIAN command usage will be sent to every configured destination."
+        : "Logging is globally disabled. Your saved routes are kept and will not be deleted when you enable or configure logging again."}`;
 
     const embed = buildControlEmbed({
         guild: interaction.guild,
@@ -39,30 +53,25 @@ async function renderLoggingPanel({ interaction }) {
         description
     });
 
-    const backButton = createSecondaryButton({
-        customId: "control:home:panel",
-        label: "Back"
-    });
-
-    const buttons = enabled
-        ? [
-            createPrimaryButton({
+    const buttons = [
+        enabled
+            ? createPrimaryButton({
                 customId: "control:logging:disable",
-                label: "Disable"
-            }),
-            createSecondaryButton({
-                customId: "control:logging:config",
-                label: "Config"
-            }),
-            backButton
-        ]
-        : [
-            createPrimaryButton({
+                label: "Disable All"
+            })
+            : createPrimaryButton({
                 customId: "control:logging:enable",
-                label: "Enable"
+                label: "Configure / Enable"
             }),
-            backButton
-        ];
+        createSecondaryButton({
+            customId: "control:logging:config",
+            label: "Add / Edit Route"
+        }),
+        createSecondaryButton({
+            customId: "control:home:panel",
+            label: "Back"
+        })
+    ];
 
     return interaction.update({
         embeds: [embed],
