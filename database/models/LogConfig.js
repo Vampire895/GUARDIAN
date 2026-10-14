@@ -1,8 +1,9 @@
 const mongoose = require("mongoose");
 
 /**
- * One active command-logging configuration per guild.
- * A saved configuration replaces the previous selection.
+ * Per-guild command logging settings.
+ * Each category keeps its own destination in categories, so saving one route
+ * never removes another route. enabled is the guild-wide logging switch.
  */
 const logConfigSchema = new mongoose.Schema({
     guildId: {
@@ -14,6 +15,12 @@ const logConfigSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // Map-like plain object: { moderation: { channelId, enabled }, security: ... }
+    categories: {
+        type: mongoose.Schema.Types.Mixed,
+        default: undefined
+    },
+    // Legacy fields retained for safe migration of older single-route configs.
     type: {
         type: String,
         default: null
@@ -21,11 +28,6 @@ const logConfigSchema = new mongoose.Schema({
     channelId: {
         type: String,
         default: null
-    },
-    // Retained in the schema only so the migration can explicitly unset legacy data.
-    categories: {
-        type: mongoose.Schema.Types.Mixed,
-        default: undefined
     }
 }, {
     timestamps: true
