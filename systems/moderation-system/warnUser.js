@@ -12,7 +12,7 @@ async function warnUser({ moderator, target, reason }) {
     // Save warning to DB
     await Warning.create({
       userId: target.id,
-      guildId: guild.id,
+      guildId: target.guild.id,
       moderatorId: moderator.id,
       reason
     });
