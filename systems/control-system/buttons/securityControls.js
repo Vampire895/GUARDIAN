@@ -1297,7 +1297,8 @@ function listModal(kind, operation, messageId) {
 
 async function openListModal(interaction, parsed) {
     if (!await allowed(interaction)) return;
-    const [kind, operation] = String(parsed.data || "").split(":");
+    const kind = parsed.action;
+    const operation = parsed.data;
     if (!["whitelist", "ignored"].includes(kind) || !["add", "remove"].includes(operation)) {
         return interaction.reply({ content: "Invalid security list operation.", ephemeral: true });
     }
