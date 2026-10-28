@@ -18,7 +18,7 @@ async function warnUser({ moderator, target, reason }) {
     });
 
     // Fetch all warnings for that user
-    const warnings = await Warning.find({ userId: target.id }).sort({ createdAt: 1 });
+    const warnings = await Warning.find({ userId: target.id, guildId: target.guild.id }).sort({ createdAt: 1 });
 
     return {
       success: true,
