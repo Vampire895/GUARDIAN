@@ -428,10 +428,7 @@ const roleCount =
         securityModules.length;
 
     const activeModules =
-        securityModules.filter(
-            ([id]) =>
-                config[id]?.enabled
-        );
+        securityModules.filter(([id]) => operationalState(id, config, interaction.guild) === "Enabled");
 
     const activeCount =
         activeModules.length;
@@ -697,7 +694,7 @@ const roleCount =
                 )
                     .map(
                         ([key, module]) =>
-                            `• **${module.label}:** ${state(config[key]?.enabled)}`
+                            `• **${module.label}:** ${operationalState(key, config, interaction.guild)}`
                     )
                     .join("\n")
         });
