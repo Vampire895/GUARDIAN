@@ -36,7 +36,7 @@ const schema = new mongoose.Schema({
 
         action: {
             type: String,
-            default: "timeout"
+            default: "warn"
         },
 
         whitelist: {
