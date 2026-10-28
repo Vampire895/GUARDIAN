@@ -26,6 +26,8 @@ function operationalState(moduleId, config, guild) {
             ? "Enabled"
             : "Unable to enforce — bot needs View Audit Log, Kick Members and Moderate Members";
     }
+    if (!["warn", "timeout", "kick"].includes(action) && moduleId !== "antiBot") return "Unable to enforce — invalid action configured";
+    if (moduleId === "antiRaid" && action === "warn") return "Unable to enforce — anti-raid supports timeout or kick only";
     if (action === "kick" && !has(PermissionFlagsBits.KickMembers)) return "Unable to enforce — missing Kick Members permission";
     if (action === "timeout" && !has(PermissionFlagsBits.ModerateMembers)) return "Unable to enforce — missing Moderate Members permission";
     return "Enabled";
@@ -66,7 +68,7 @@ async function renderSecurityPanel({ interaction }) {
         guild: interaction.guild,
         title: "Security Center",
         description:
-            `Configure Guardian's protection systems. **${enabled}/${Object.keys(modules).length}** protection modules are enabled.\n\nChoose a module below, or manage server-wide security lists.`
+            `Configure Guardian's protection systems. **${enabled}/${Object.keys(modules).length}** protection modules are enabled.\n\nChoose a module below, or manage each module's own whitelist and ignored channels.`
     });
 
     const select =
