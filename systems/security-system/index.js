@@ -149,10 +149,16 @@ module.exports = (client) => {
           catch (err) { console.error("[ANTI-BOT EXECUTOR FETCH ERROR]", err); }
         }
 
-        const inviterWhitelisted = !!executor && (
+        // Fail safe: only enforce when the audit log identifies the inviter.
+        // If audit logs are unavailable/delayed, do not risk kicking a legitimate bot.
+        if (!entry || !executor) {
+          console.warn(`[ANTI-BOT] Could not verify inviter for bot ${member.id}; no punitive action taken. Check View Audit Log permission and retry.`);
+          return;
+        }
+
+        const inviterWhitelisted =
           config.antiBot?.whitelist?.users?.includes(executor.id) ||
-          executor.roles.cache.some(role => config.antiBot?.whitelist?.roles?.includes(role.id))
-        );
+          executor.roles.cache.some(role => config.antiBot?.whitelist?.roles?.includes(role.id));
 
         // A whitelisted inviter is the only exemption; there is no bot-account whitelist.
         if (inviterWhitelisted) return;
@@ -162,14 +168,10 @@ module.exports = (client) => {
           else console.warn(`[ANTI-BOT] Could not kick bot ${member.id}: missing permission or role hierarchy.`);
         } catch (err) { console.error("[ANTI-BOT KICK ERROR]", err); }
 
-        if (executor) {
-          try {
-            if (executor.moderatable) await executor.timeout(60 * 60 * 1000, "Added a non-whitelisted bot");
-            else console.warn(`[ANTI-BOT] Could not timeout inviter ${executor.id}: missing permission or role hierarchy.`);
-          } catch (err) { console.error("[ANTI-BOT INVITER PUNISHMENT ERROR]", err); }
-        } else {
-          console.warn(`[ANTI-BOT] Could not identify the inviter for bot ${member.id}; bot enforcement attempted, inviter punishment skipped.`);
-        }
+        try {
+          if (executor.moderatable) await executor.timeout(60 * 60 * 1000, "Added a non-whitelisted bot");
+          else console.warn(`[ANTI-BOT] Could not timeout inviter ${executor.id}: missing permission or role hierarchy.`);
+        } catch (err) { console.error("[ANTI-BOT INVITER PUNISHMENT ERROR]", err); }
         return;
       }
 
