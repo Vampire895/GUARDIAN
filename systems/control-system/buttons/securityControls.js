@@ -145,17 +145,23 @@ async function toggleModule(interaction, parsed) {
             interaction.guild.id
         );
 
-    const current =
-        config[moduleId].enabled;
+    const session = getSession(interaction.message.id);
+    if (!session) {
+        return interaction.reply({
+            content: "❌ Control session expired.",
+            ephemeral: true
+        });
+    }
 
-    const staged =
-        stageConfig(
-            interaction.message.id,
-            {
-                [`${moduleId}.enabled`]:
-                    !current
-            }
-        );
+    // Toggle from the latest staged value, not stale database state.
+    const stagedKey = `${moduleId}.enabled`;
+    const current = Object.prototype.hasOwnProperty.call(session.stagedConfig || {}, stagedKey)
+        ? session.stagedConfig[stagedKey]
+        : Boolean(config[moduleId].enabled);
+
+    const staged = stageConfig(interaction.message.id, {
+        [stagedKey]: !current
+    });
 
     if (!staged) {
         return interaction.reply({
@@ -900,15 +906,16 @@ async function saveWhitelistUsers(interaction) {
     const module =
         session.whitelistModule;
 
-    stageConfig(
+    const config = await getConfig(interaction.guild.id);
+    const key = `${module}.whitelist.users`;
+    const current = Array.isArray(session.stagedConfig?.[key])
+        ? session.stagedConfig[key]
+        : (config[module]?.whitelist?.users || []);
+    const next = [...new Set([...current, ...interaction.values])];
 
-        interaction.message.id,
-
-        {
-            [`${module}.whitelist.users`]:
-                interaction.values
-        }
-    );
+    if (!stageConfig(interaction.message.id, { [key]: next })) {
+        return interaction.reply({ content: "❌ Control session expired.", ephemeral: true });
+    }
 
     return renderSecurityModulePanel({
 
@@ -935,15 +942,16 @@ async function saveWhitelistRoles(interaction) {
     const module =
         session.whitelistModule;
 
-    stageConfig(
+    const config = await getConfig(interaction.guild.id);
+    const key = `${module}.whitelist.roles`;
+    const current = Array.isArray(session.stagedConfig?.[key])
+        ? session.stagedConfig[key]
+        : (config[module]?.whitelist?.roles || []);
+    const next = [...new Set([...current, ...interaction.values])];
 
-        interaction.message.id,
-
-        {
-            [`${module}.whitelist.roles`]:
-                interaction.values
-        }
-    );
+    if (!stageConfig(interaction.message.id, { [key]: next })) {
+        return interaction.reply({ content: "❌ Control session expired.", ephemeral: true });
+    }
 
     return renderSecurityModulePanel({
 
@@ -1335,7 +1343,7 @@ async function saveList(interaction, parsed) {
 
     if (kind === "whitelist") {
         const type = interaction.fields.getTextInputValue("type").trim().toLowerCase();
-        if (!(["user", "role", "channel"].includes(type))) return interaction.reply({ content: "Type must be user, role, or channel.", ephemeral: true });
+        if (!(["user", "role"].includes(type))) return interaction.reply({ content: "Type must be user or role. Use the dedicated ignored-channel controls for channels.", ephemeral: true });
         const path = `${type}s`;
         const session = getSession(modalSessionId);
         const module = session?.whitelistModule;
