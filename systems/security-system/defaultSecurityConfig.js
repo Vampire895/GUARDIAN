@@ -11,24 +11,28 @@ module.exports = {
     maxMessages: 5,
     interval: 5000,
     action: "warn",
+    whitelist: { users: [], roles: [] },
   },
 
   antiLink: {
     enabled: false,
     action: "timeout",
     allowedDomains: [],
+    whitelist: { users: [], roles: [] },
   },
 
   inviteFilter: {
     enabled: false,
     action: "timeout",
+    whitelist: { users: [], roles: [] },
   },
 
   antiRaid: {
     enabled: false,
     joinThreshold: 5,
-    timeWindow: 10000,
+    interval: 10000,
     action: "kick",
+    whitelist: { users: [], roles: [] },
   },
 
   antiMentionSpam: {
@@ -39,8 +43,7 @@ module.exports = {
 
   antiBot: {
     enabled: false,
-    whitelist: [],
-  },
+    whitelist: { users: [], roles: [] },
 
   antiWebhook: {
     enabled: false,
@@ -48,12 +51,6 @@ module.exports = {
   },
 
   ignoredChannels: [],
-
- whitelist: {
-  users: [],
-  roles: [],
-  channels: []
-},
 
   actions: {
     spam: "warn",
