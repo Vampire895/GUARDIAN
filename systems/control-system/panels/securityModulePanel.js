@@ -1,4 +1,4 @@
-const { StringSelectMenuBuilder } = require("discord.js");
+const { StringSelectMenuBuilder, PermissionFlagsBits } = require("discord.js");
 const buildControlEmbed = require("../utils/buildControlEmbed");
 const createPrimaryButton = require("../../../ui/buttons/createPrimaryButton");
 const createSecondaryButton = require("../../../ui/buttons/createSecondaryButton");
@@ -16,11 +16,28 @@ const modules = {
 
 const state = value => value ? "Enabled" : "Disabled";
 
-function moduleDescription(moduleId, config) {
+function operationalState(moduleId, config, guild) {
+    const module = config[moduleId] || {};
+    if (!module.enabled) return "Disabled";
+    const permissions = guild.members.me?.permissions;
+    if (!permissions) return "Unable to verify bot permissions";
+    const has = permission => permissions.has(permission);
+    const action = module.action || (moduleId === "antiRaid" ? "kick" : "timeout");
+    if (moduleId === "antiBot") {
+        return has(PermissionFlagsBits.ViewAuditLog) && has(PermissionFlagsBits.KickMembers) && has(PermissionFlagsBits.ModerateMembers)
+            ? "Enabled"
+            : "Unable to enforce — bot needs View Audit Log, Kick Members and Moderate Members";
+    }
+    if (action === "kick" && !has(PermissionFlagsBits.KickMembers)) return "Unable to enforce — missing Kick Members permission";
+    if (action === "timeout" && !has(PermissionFlagsBits.ModerateMembers)) return "Unable to enforce — missing Moderate Members permission";
+    return "Enabled";
+}
+
+function moduleDescription(moduleId, config, guild) {
     const module = config[moduleId];
 
     if (moduleId === "antiSpam") {
-        return `${modules[moduleId].description}\n\n**Status:** ${state(module.enabled)}\n**Threshold:** ${module.maxMessages} messages\n**Window:** ${module.interval}ms\n**Action:** ${module.action}`;
+        return `${modules[moduleId].description}\n\n**Status:** ${operationalState(moduleId, config, guild)}\n**Threshold:** ${module.maxMessages} messages\n**Window:** ${module.interval}ms\n**Action:** ${module.action}`;
     }
 
     if (moduleId === "antiLink") {
@@ -178,7 +195,8 @@ async function renderSecurityModulePanel({
                 description:
                     moduleDescription(
                         moduleId,
-                        config
+                        config,
+                        interaction.guild
                     )
             });
 
@@ -263,8 +281,8 @@ async function renderSecurityModulePanel({
 
         const whitelist =
     selected &&
-    config.whitelist?.[selected]
-        ? config.whitelist[selected]
+    config[selected]?.whitelist
+        ? config[selected].whitelist
         : {};
 
 const userCount =
@@ -425,8 +443,7 @@ const roleCount =
             )
             : 0;
 
-    const whitelist =
-        config.whitelist || {};
+    const whitelist = Object.fromEntries(Object.keys(modules).map(id => [id, config[id]?.whitelist || {}]));
 
     const whitelistUsers =
         Object.values(whitelist)
