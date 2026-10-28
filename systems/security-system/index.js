@@ -120,10 +120,13 @@ module.exports = (client) => {
       if (!config) return;
 
       // Automation is independent of security-module whitelist exceptions.
-      try { if (config.autorole?.enabled) await autorole.assign(member, config.autorole); }
-      catch (err) { console.error("[AUTOROLE ERROR]", err); }
-      try { if (config.welcome?.enabled) await welcome.send(member, config.welcome); }
-      catch (err) { console.error("[WELCOME ERROR]", err); }
+      // Bots are handled by anti-bot first and should not receive human welcome/autorole flows.
+      if (!member.user.bot) {
+        try { if (config.autorole?.enabled) await autorole.assign(member, config.autorole); }
+        catch (err) { console.error("[AUTOROLE ERROR]", err); }
+        try { if (config.welcome?.enabled) await welcome.send(member, config.welcome); }
+        catch (err) { console.error("[WELCOME ERROR]", err); }
+      }
 
       // ANTI-BOT: the human who added the bot is checked against antiBot whitelist.
       const botResult = antiBot.evaluate(member, config.antiBot);
