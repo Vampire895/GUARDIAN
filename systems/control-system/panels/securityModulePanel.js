@@ -14,8 +14,6 @@ const modules = {
     antiBot: { label: "Anti-Bot", description: "Remove newly added bots unless the adder is whitelisted." }
 };
 
-const state = value => value ? "Enabled" : "Disabled";
-
 function operationalState(moduleId, config, guild) {
     const module = config[moduleId] || {};
     if (!module.enabled) return "Disabled";
@@ -41,7 +39,7 @@ function moduleDescription(moduleId, config, guild) {
     }
 
     if (moduleId === "antiLink") {
-        return `${modules[moduleId].description}\n\n**Status:** ${state(module.enabled)}\n**Action:** ${module.action}\n**Allowed domains:** ${module.allowedDomains.length ? module.allowedDomains.join(", ") : "None"}`;
+        return `${modules[moduleId].description}\n\n**Status:** ${operationalState(moduleId, config, guild)}\n**Action:** ${module.action}\n**Allowed domains:** ${module.allowedDomains.length ? module.allowedDomains.join(", ") : "None"}`;
     }
 
     if (moduleId === "inviteFilter") {
