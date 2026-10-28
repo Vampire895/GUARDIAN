@@ -36,15 +36,6 @@ module.exports = (client) => {
 
       if (config.ignoredChannels?.includes(message.channel.id)) return;
 
-      const isWhitelisted =
-        config.whitelist?.users?.includes(message.author.id) ||
-        config.whitelist?.roles?.some(roleId =>
-          message.member.roles.cache.has(roleId)
-        ) ||
-        config.whitelist?.channels?.includes(message.channel.id);
-
-      if (isWhitelisted) return;
-
       // =========================
       // 🤖 AUTO RESPONDER
       // =========================
@@ -128,96 +119,72 @@ module.exports = (client) => {
       const config = await getConfig(member.guild.id);
       if (!config) return;
 
-      const isWhitelisted =
-        config.whitelist?.users?.includes(member.id) ||
-        config.whitelist?.roles?.some(roleId =>
-          member.roles.cache.has(roleId)
+      // Automation is independent of security-module whitelist exceptions.
+      try { if (config.autorole?.enabled) await autorole.assign(member, config.autorole); }
+      catch (err) { console.error("[AUTOROLE ERROR]", err); }
+      try { if (config.welcome?.enabled) await welcome.send(member, config.welcome); }
+      catch (err) { console.error("[WELCOME ERROR]", err); }
+
+      // ANTI-BOT: the human who added the bot is checked against antiBot whitelist.
+      const botResult = antiBot.evaluate(member, config.antiBot);
+      if (botResult.triggered) {
+        let entry = null;
+        // Audit-log entries can lag behind guildMemberAdd; retry briefly and match this exact bot.
+        for (let attempt = 0; attempt < 4 && !entry; attempt++) {
+          try {
+            const logs = await member.guild.fetchAuditLogs({ limit: 6, type: AuditLogEvent.BotAdd });
+            entry = logs.entries.find(candidate => candidate.target?.id === member.id && candidate.executor?.id && Date.now() - candidate.createdTimestamp < 15000) || null;
+          } catch (err) {
+            console.error("[ANTI-BOT AUDIT ERROR]", err);
+          }
+          if (!entry && attempt < 3) await new Promise(resolve => setTimeout(resolve, 350));
+        }
+
+        let executor = null;
+        if (entry?.executor?.id) {
+          try { executor = await member.guild.members.fetch(entry.executor.id); }
+          catch (err) { console.error("[ANTI-BOT EXECUTOR FETCH ERROR]", err); }
+        }
+
+        const inviterWhitelisted = !!executor && (
+          config.antiBot?.whitelist?.users?.includes(executor.id) ||
+          executor.roles.cache.some(role => config.antiBot?.whitelist?.roles?.includes(role.id))
         );
 
-      if (isWhitelisted) return;
-
-      // 🎯 AUTO ROLE
-      try {
-        if (config.autorole?.enabled) {
-          await autorole.assign(member, config.autorole);
-        }
-      } catch (err) {
-        console.error("[AUTOROLE ERROR]", err);
-      }
-
-      // 👋 WELCOME
-      try {
-        if (config.welcome?.enabled) {
-          await welcome.send(member, config.welcome);
-        }
-      } catch (err) {
-        console.error("[WELCOME ERROR]", err);
-      }
-
-      // 🤖 ANTI-BOT
-      const botResult = antiBot.evaluate(member, config.antiBot);
-
-      if (botResult.triggered) {
-        if (member.kickable) {
-          await member.kick("Unauthorized bot detected");
-        }
-
-        await new Promise(res => setTimeout(res, 1500));
+        // A whitelisted inviter is the only exemption; there is no bot-account whitelist.
+        if (inviterWhitelisted) return;
 
         try {
-          const logs = await member.guild.fetchAuditLogs({
-            limit: 1,
-            type: AuditLogEvent.BotAdd,
-          });
+          if (member.kickable) await member.kick("Unauthorized bot detected by Guardian anti-bot protection");
+          else console.warn(`[ANTI-BOT] Could not kick bot ${member.id}: missing permission or role hierarchy.`);
+        } catch (err) { console.error("[ANTI-BOT KICK ERROR]", err); }
 
-          const entry = logs.entries.first();
-          if (!entry) return;
-          if (entry.target.id !== member.id) return;
-
-          const executor = await member.guild.members.fetch(entry.executor.id);
-
-          const executorWhitelisted =
-            config.whitelist?.users?.includes(executor.id) ||
-            config.whitelist?.roles?.some(roleId =>
-              executor.roles.cache.has(roleId)
-            );
-
-          if (executorWhitelisted) return;
-
-          if (executor.moderatable) {
-            await executor.timeout(60 * 60 * 1000, "Unauthorized bot added");
-          }
-
-        } catch (err) {
-          console.error("[ANTI-BOT AUDIT ERROR]", err);
+        if (executor) {
+          try {
+            if (executor.moderatable) await executor.timeout(60 * 60 * 1000, "Added a non-whitelisted bot");
+            else console.warn(`[ANTI-BOT] Could not timeout inviter ${executor.id}: missing permission or role hierarchy.`);
+          } catch (err) { console.error("[ANTI-BOT INVITER PUNISHMENT ERROR]", err); }
+        } else {
+          console.warn(`[ANTI-BOT] Could not identify the inviter for bot ${member.id}; bot enforcement attempted, inviter punishment skipped.`);
         }
-
         return;
       }
 
-      // 🔥 ANTI-RAID
-      const result = antiRaid.evaluate(member, config.antiRaid);
+      // ANTI-RAID: enforce only against IDs in the detected join cohort.
+      const raid = antiRaid.evaluate(member, config.antiRaid);
+      if (!raid.triggered) return;
 
-      if (result.triggered) {
-        const members = await member.guild.members.fetch();
-
-        const recent = members.filter(
-          (m) =>
-            m.joinedTimestamp &&
-            Date.now() - m.joinedTimestamp < config.antiRaid.interval
-        );
-
-        for (const m of recent.values()) {
-          if (result.action === "kick" && m.kickable) {
-            await m.kick("Raid detected");
-          }
-
-          if (result.action === "timeout" && m.moderatable) {
-            await m.timeout(5 * 60 * 1000, "Raid detected");
-          }
-        }
+      for (const userId of raid.members || []) {
+        let joinedMember = null;
+        try { joinedMember = await member.guild.members.fetch(userId); }
+        catch { continue; }
+        if (config.antiRaid?.whitelist?.users?.includes(userId) || joinedMember.roles.cache.some(role => config.antiRaid?.whitelist?.roles?.includes(role.id))) continue;
+        try {
+          if (raid.action === "kick" && joinedMember.kickable) await joinedMember.kick("Raid detected by Guardian anti-raid protection");
+          else if (raid.action === "timeout" && joinedMember.moderatable) await joinedMember.timeout(5 * 60 * 1000, "Raid detected by Guardian anti-raid protection");
+          else console.warn(`[ANTI-RAID] Could not enforce against ${userId}: action unavailable or role hierarchy/permissions prevent it.`);
+        } catch (err) { console.error("[ANTI-RAID ACTION ERROR]", err); }
       }
-
     } catch (err) {
       console.error("[MEMBER JOIN ERROR]", err);
     }
