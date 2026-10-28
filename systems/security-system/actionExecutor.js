@@ -35,7 +35,9 @@ async function execute({ action, userId, guild, reason = "Auto moderation" }) {
 
       // 🔥 CHECK ESCALATION
       const config = await getConfig(guild.id);
-      const escalation = await checkEscalation(userId, config);
+      // Pass the guild explicitly so escalation remains correctly scoped even if
+      // the config object is later changed or supplied as a plain object.
+      const escalation = await checkEscalation(userId, { ...config.toObject?.() ?? config, guildId: guild.id });
 
       if (escalation) {
         // TIMEOUT
