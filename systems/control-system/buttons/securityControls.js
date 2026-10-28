@@ -75,6 +75,24 @@ async function allowed(interaction) {
     return true;
 }
 
+async function refreshSecurityDashboard(interaction, session) {
+    try {
+        const channel = await interaction.client.channels.fetch(session.channelId);
+        if (!channel?.messages?.fetch) return;
+        const message = await channel.messages.fetch(session.dashboardMessageId);
+        await renderSecurityModulePanel({
+            interaction: {
+                guild: interaction.guild,
+                message: { id: session.dashboardMessageId },
+                update: payload => message.edit(payload)
+            },
+            moduleId: session.whitelistModule ? "whitelist" : "ignoredChannels"
+        });
+    } catch (error) {
+        console.error("[SECURITY DASHBOARD REFRESH ERROR]", error);
+    }
+}
+
 function securityModal(moduleId, config, messageId) {
     const module = config[moduleId];
     const modal = new ModalBuilder()
@@ -1333,7 +1351,9 @@ async function saveList(interaction, parsed) {
             : current.filter(id => !ids.includes(id));
         const staged = stageConfig(modalSessionId, { [configPath]: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
-        return interaction.reply({ content: "Module-specific whitelist changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
+        await interaction.reply({ content: "Module-specific whitelist changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
+        await refreshSecurityDashboard(interaction, session);
+        return;
     } else if (kind === "ignored") {
         const session = getSession(modalSessionId);
         if (!session || session.ownerId !== interaction.user.id || session.guildId !== interaction.guild.id) {
@@ -1346,7 +1366,9 @@ async function saveList(interaction, parsed) {
             : current.filter(id => !ids.includes(id));
         const staged = stageConfig(modalSessionId, { ignoredChannels: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
-        return interaction.reply({ content: "Ignored-channel changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
+        await interaction.reply({ content: "Ignored-channel changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
+        await refreshSecurityDashboard(interaction, session);
+        return;
     }
     return interaction.reply({ content: "Invalid security list operation.", ephemeral: true });
 }
