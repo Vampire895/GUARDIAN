@@ -37,13 +37,13 @@ async function execute({ action, userId, guild, reason = "Auto moderation" }) {
       if (escalation) {
         // TIMEOUT
         if (escalation.action === "timeout") {
-          if (!member.moderatable) return;
+          if (!member.moderatable) return { success: false, error: "Missing permission or role hierarchy for timeout" };
           await member.timeout(5 * 60 * 1000, "Escalation punishment");
         }
 
         // KICK
         if (escalation.action === "kick") {
-            if (!member.kickable) return;
+            if (!member.kickable) return { success: false, error: "Missing permission or role hierarchy for kick" };
           await member.kick("Escalation punishment");
         }
       }
