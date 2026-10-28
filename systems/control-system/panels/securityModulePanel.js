@@ -493,20 +493,9 @@ const roleCount =
     const protectionGrid =
         securityModules
             .map(([id, module]) => {
-
-                const enabled =
-                    config[id]?.enabled;
-
-                return `${
-                    enabled
-                        ? "🟢"
-                        : "⚫"
-                } **${module.label}** — ${
-                    enabled
-                        ? "**ONLINE**"
-                        : "OFF"
-                }`;
-
+                const status = operationalState(id, config, interaction.guild);
+                const icon = status === "Enabled" ? "🟢" : status === "Disabled" ? "⚫" : "🟠";
+                return `${icon} **${module.label}** — ${status}`;
             })
             .join("\n");
 
