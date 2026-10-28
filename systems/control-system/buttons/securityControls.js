@@ -515,7 +515,7 @@ async function selectWhitelistRemoveType(
         );
 
     const whitelist =
-        config.whitelist?.[module] || {};
+        config[module]?.whitelist || {};
 
     const entries =
         whitelist[type] || [];
@@ -637,7 +637,7 @@ async function removeWhitelistUsers(
 
     const current =
         session.stagedConfig?.[
-            `whitelist.${module}.users`
+            `${module}.whitelist.users`
         ];
 
     const config =
@@ -649,7 +649,7 @@ async function removeWhitelistUsers(
         Array.isArray(current)
             ? current
             : (
-                config.whitelist?.[module]?.users || []
+                config[module]?.whitelist?.users || []
             );
 
     const updated =
@@ -663,7 +663,7 @@ async function removeWhitelistUsers(
         interaction.message.id,
 
         {
-            [`whitelist.${module}.users`]:
+            [`${module}.whitelist.users`]:
                 updated
         }
     );
@@ -711,7 +711,7 @@ async function removeWhitelistRoles(
 
     const current =
         session.stagedConfig?.[
-            `whitelist.${module}.roles`
+            `${module}.whitelist.roles`
         ];
 
     const config =
@@ -723,7 +723,7 @@ async function removeWhitelistRoles(
         Array.isArray(current)
             ? current
             : (
-                config.whitelist?.[module]?.roles || []
+                config[module]?.whitelist?.roles || []
             );
 
     const updated =
@@ -737,7 +737,7 @@ async function removeWhitelistRoles(
         interaction.message.id,
 
         {
-            [`whitelist.${module}.roles`]:
+            [`${module}.whitelist.roles`]:
                 updated
         }
     );
@@ -878,7 +878,7 @@ async function saveWhitelistUsers(interaction) {
         interaction.message.id,
 
         {
-            [`whitelist.${module}.users`]:
+            [`${module}.whitelist.users`]:
                 interaction.values
         }
     );
@@ -911,7 +911,7 @@ async function saveWhitelistRoles(interaction) {
         interaction.message.id,
 
         {
-            [`whitelist.${module}.roles`]:
+            [`${module}.whitelist.roles`]:
                 interaction.values
         }
     );
@@ -1326,9 +1326,14 @@ async function saveList(interaction, parsed) {
         const type = interaction.fields.getTextInputValue("type").trim().toLowerCase();
         if (!(["user", "role", "channel"].includes(type))) return interaction.reply({ content: "Type must be user, role, or channel.", ephemeral: true });
         const path = `${type}s`;
-        const current = config.whitelist?.[path] || [];
+        const session = getSession(interaction.message?.id);
+        const module = session?.whitelistModule;
+        if (!module || !["users", "roles"].includes(path)) return interaction.reply({ content: "Select a protection module and use its user/role whitelist controls.", ephemeral: true });
+        const current = config[module]?.whitelist?.[path] || [];
         const next = operation === "add" ? [...new Set([...current, ...ids])] : current.filter(id => !ids.includes(id));
-        await updateConfig(interaction.guild.id, { [`whitelist.${path}`]: next });
+        const staged = stageConfig(interaction.message.id, { [module + ".whitelist." + path]: next });
+        if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
+        return interaction.reply({ content: "Module-specific whitelist changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
     } else {
         const current = config.ignoredChannels || [];
         const next = operation === "add" ? [...new Set([...current, ...ids])] : current.filter(id => !ids.includes(id));
