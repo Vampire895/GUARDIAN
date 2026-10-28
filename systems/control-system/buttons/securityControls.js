@@ -179,13 +179,17 @@ async function saveChanges(
         });
     }
 
-    await updateConfig(
-        interaction.guild.id,
-        session.stagedConfig
-    );
+    try {
+        const saved = await updateConfig(interaction.guild.id, session.stagedConfig);
+        if (!saved) {
+            return interaction.reply({ content: "❌ Could not save settings. Your staged changes are still available; try again.", ephemeral: true });
+        }
+    } catch (error) {
+        console.error("[SECURITY CONFIG SAVE ERROR]", error);
+        return interaction.reply({ content: "❌ Saving failed. Your staged changes are still available; try again.", ephemeral: true });
+    }
 
     session.stagedConfig = {};
-
     session.dirty = false;
 
     return renderSecurityPanel({
@@ -1293,7 +1297,11 @@ function listModal(kind, operation, messageId) {
 
 async function openListModal(interaction, parsed) {
     if (!await allowed(interaction)) return;
-    return interaction.showModal(listModal(parsed.action, parsed.data, interaction.message.id));
+    const [kind, operation] = String(parsed.data || "").split(":");
+    if (!["whitelist", "ignored"].includes(kind) || !["add", "remove"].includes(operation)) {
+        return interaction.reply({ content: "Invalid security list operation.", ephemeral: true });
+    }
+    return interaction.showModal(listModal(kind, operation, interaction.message.id));
 }
 
 async function saveList(interaction, parsed) {
@@ -1318,12 +1326,18 @@ async function saveList(interaction, parsed) {
         const staged = stageConfig(modalSessionId, { [module + ".whitelist." + path]: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
         return interaction.reply({ content: "Module-specific whitelist changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
-    } else {
+    } else if (kind === "ignored") {
+        const session = getSession(modalSessionId);
+        if (!session || session.ownerId !== interaction.user.id || session.guildId !== interaction.guild.id) {
+            return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
+        }
         const current = config.ignoredChannels || [];
         const next = operation === "add" ? [...new Set([...current, ...ids])] : current.filter(id => !ids.includes(id));
-        await updateConfig(interaction.guild.id, { ignoredChannels: next });
+        const staged = stageConfig(modalSessionId, { ignoredChannels: next });
+        if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
+        return interaction.reply({ content: "Ignored-channel changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
     }
-    return interaction.reply({ content: "Security list updated.", ephemeral: true });
+    return interaction.reply({ content: "Invalid security list operation.", ephemeral: true });
 }
 
 buttonRegistry.set("control:security:toggle", toggleModule);
