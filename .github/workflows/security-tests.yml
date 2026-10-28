@@ -1,0 +1,38 @@
+name: Security module tests
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches:
+      - master
+      - security-module-hardening-2026-10-28
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run database-free security tests
+        run: npm run test:security
+      - name: Check changed JavaScript syntax
+        shell: bash
+        run: |
+          git fetch origin master
+          files=$(git diff --name-only origin/master...HEAD -- '*.js')
+          if [ -z "$files" ]; then
+            echo "No changed JavaScript files found."
+            exit 0
+          fi
+          while IFS= read -r file; do
+            echo "Checking $file"
+            node --check "$file"
+          done <<< "$files"
