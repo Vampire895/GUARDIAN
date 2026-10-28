@@ -4,5 +4,8 @@
     "dotenv": "^17.4.2",
     "mongodb": "^7.3.0",
     "mongoose": "^9.6.1"
+  },
+  "scripts": {
+    "test:security": "node --test tests/security-detectors.test.js"
   }
 }
