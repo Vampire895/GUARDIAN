@@ -69,25 +69,6 @@ module.exports = (client) => {
       }
 
       // =========================
-      // 🔥 ANTI-LINK
-      // =========================
-      try {
-        const linkResult = antiLink.evaluate(message, config.antiLink);
-
-        if (linkResult?.triggered) {
-          await actionExecutor.execute({
-            action: linkResult.action,
-            userId: linkResult.userId,
-            guild: message.guild,
-            reason: "Auto link detection",
-          });
-          return;
-        }
-      } catch (err) {
-        console.error("[ANTI-LINK ERROR]", err);
-      }
-
-      // =========================
       // 🔥 INVITE FILTER
       // =========================
       try {
@@ -104,6 +85,25 @@ module.exports = (client) => {
         }
       } catch (err) {
         console.error("[INVITE FILTER ERROR]", err);
+      }
+
+      // =========================
+      // 🔥 ANTI-LINK
+      // =========================
+      try {
+        const linkResult = antiLink.evaluate(message, config.antiLink);
+
+        if (linkResult?.triggered) {
+          await actionExecutor.execute({
+            action: linkResult.action,
+            userId: linkResult.userId,
+            guild: message.guild,
+            reason: "Auto link detection",
+          });
+          return;
+        }
+      } catch (err) {
+        console.error("[ANTI-LINK ERROR]", err);
       }
 
     } catch (err) {
