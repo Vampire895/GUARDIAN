@@ -22,11 +22,14 @@ async function execute({ action, userId, guild, reason = "Auto moderation" }) {
     // 🔥 WARN
     // =========================
     if (action === "warn") {
-      warnUser({
+      const warning = await warnUser({
         moderator: guild.members.me,
         target: member,
         reason,
       });
+      if (!warning?.success) {
+        return { success: false, error: warning?.error || "Failed to record warning" };
+      }
 
       
 
@@ -55,7 +58,7 @@ async function execute({ action, userId, guild, reason = "Auto moderation" }) {
     // 🔥 TIMEOUT
     // =========================
     if (action === "timeout") {
-        if (!member.moderatable) return;
+        if (!member.moderatable) return { success: false, error: "Missing permission or role hierarchy for timeout" };
       await member.timeout(5 * 60 * 1000, reason);
       return { success: true };
     }
@@ -64,7 +67,7 @@ async function execute({ action, userId, guild, reason = "Auto moderation" }) {
     // 🔥 KICK
     // =========================
     if (action === "kick") {
-        if (!member.kickable) return;
+        if (!member.kickable) return { success: false, error: "Missing permission or role hierarchy for kick" };
       await member.kick(reason);
       return { success: true };
     }
