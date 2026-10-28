@@ -19,7 +19,7 @@ async function validateSession(interaction) {
     }
 
     // Compatibility for older Control Centre modals that predate message-ID binding.
-    if (isModal && !session) {
+    if (isModal && !session && !(lastPart && /^\\d{15,22}$/.test(lastPart))) {
         const matches = [...controlSessions.entries()].filter(([, candidate]) =>
             candidate.ownerId === interaction.user.id &&
             candidate.guildId === interaction.guildId &&
