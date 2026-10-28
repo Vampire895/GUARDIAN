@@ -43,14 +43,14 @@ function moduleDescription(moduleId, config, guild) {
     }
 
     if (moduleId === "inviteFilter") {
-        return `${modules[moduleId].description}\n\n**Status:** ${state(module.enabled)}\n**Action:** ${module.action}`;
+        return `${modules[moduleId].description}\n\n**Status:** ${operationalState(moduleId, config, guild)}\n**Action:** ${module.action}`;
     }
 
     if (moduleId === "antiRaid") {
-        return `${modules[moduleId].description}\n\n**Status:** ${state(module.enabled)}\n**Join threshold:** ${module.joinThreshold}\n**Window:** ${module.interval}ms\n**Action:** ${module.action}`;
+        return `${modules[moduleId].description}\n\n**Status:** ${operationalState(moduleId, config, guild)}\n**Join threshold:** ${module.joinThreshold}\n**Window:** ${module.interval}ms\n**Action:** ${module.action}`;
     }
 
-    return `${modules[moduleId].description}\n\n**Status:** ${state(module.enabled)}`;
+    return `${modules[moduleId].description}\n\n**Status:** ${operationalState(moduleId, config, guild)}`;
 }
 
 async function renderSecurityPanel({ interaction }) {
