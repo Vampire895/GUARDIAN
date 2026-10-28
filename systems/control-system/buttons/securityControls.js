@@ -75,10 +75,10 @@ async function allowed(interaction) {
     return true;
 }
 
-function securityModal(moduleId, config) {
+function securityModal(moduleId, config, messageId) {
     const module = config[moduleId];
     const modal = new ModalBuilder()
-        .setCustomId(`control:modal:security-config:${moduleId}`)
+        .setCustomId(`control:modal:security-config:${moduleId}:${messageId}`)
         .setTitle(`Configure ${modules[moduleId].label}`);
 
     if (moduleId === "antiSpam") {
@@ -160,6 +160,8 @@ async function saveChanges(
     interaction
 ) {
 
+    if (!await allowed(interaction)) return;
+
     const session =
         getSession(
             interaction.message.id
@@ -233,7 +235,8 @@ async function openConfig(interaction, parsed) {
 
         securityModal(
             moduleId,
-            config
+            config,
+            interaction.message.id
         )
     );
 }
@@ -861,6 +864,8 @@ async function selectWhitelistAddType(
 
 async function saveWhitelistUsers(interaction) {
 
+    if (!await allowed(interaction)) return;
+
     const session =
         getSession(
             interaction.message.id
@@ -894,6 +899,8 @@ async function saveWhitelistUsers(interaction) {
 
 async function saveWhitelistRoles(interaction) {
 
+    if (!await allowed(interaction)) return;
+
     const session =
         getSession(
             interaction.message.id
@@ -926,7 +933,7 @@ async function saveWhitelistRoles(interaction) {
 
 async function saveConfig(interaction, parsed) {
     if (!await allowed(interaction)) return;
-    const moduleId = parsed.data;
+    const [moduleId, modalSessionId] = String(parsed.data || "").split(":");
     const value = id => interaction.fields.getTextInputValue(id).trim();
     const action = interaction.fields.fields.has("action") ? value("action").toLowerCase() : null;
     if (action && !actions.includes(action)) {
@@ -958,18 +965,10 @@ async function saveConfig(interaction, parsed) {
         return interaction.reply({ content: "Unknown security module.", ephemeral: true });
     }
 
- let session = null;
+ const session = getSession(modalSessionId);
 
-for (const s of controlSessions.values()) {
-
-    if (
-        s.ownerId === interaction.user.id &&
-        s.activeModule === moduleId
-    ) {
-
-        session = s;
-        break;
-    }
+if (!session || session.ownerId !== interaction.user.id || session.guildId !== interaction.guild.id || session.activeModule !== moduleId) {
+    return interaction.reply({ content: "❌ Control session expired or does not belong to you.", ephemeral: true });
 }
 
 if (!session) {
@@ -990,25 +989,7 @@ const staged =
     );
 
 if (!staged) {
-
-    return interaction.reply({
-
-        content:
-            "❌ Failed to stage changes.",
-
-        ephemeral: true
-    });
-}
-
-if (!staged) {
-
-    return interaction.reply({
-
-        content:
-            "❌ Control session expired.",
-
-        ephemeral: true
-    });
+    return interaction.reply({ content: "❌ Control session expired.", ephemeral: true });
 }
 
 await interaction.reply({
@@ -1301,10 +1282,10 @@ async function saveIgnoredChannelsRemove(
     });
 }
 
-function listModal(kind, operation) {
+function listModal(kind, operation, messageId) {
     const isWhitelist = kind === "whitelist";
     const modal = new ModalBuilder()
-        .setCustomId(`control:modal:security-list:${kind}:${operation}`)
+        .setCustomId(`control:modal:security-list:${kind}:${operation}:${messageId}`)
         .setTitle(`${operation === "add" ? "Add" : "Remove"} ${isWhitelist ? "Whitelist Entry" : "Ignored Channel"}`);
     if (isWhitelist) modal.addComponents(input("type", "Type: user, role, or channel", "", { placeholder: "user" }));
     return modal.addComponents(input("ids", isWhitelist ? "IDs, comma-separated" : "Channel IDs, comma-separated", "", { placeholder: "123456789012345678" }));
@@ -1312,12 +1293,15 @@ function listModal(kind, operation) {
 
 async function openListModal(interaction, parsed) {
     if (!await allowed(interaction)) return;
-    return interaction.showModal(listModal(parsed.action, parsed.data));
+    return interaction.showModal(listModal(parsed.action, parsed.data, interaction.message.id));
 }
 
 async function saveList(interaction, parsed) {
     if (!await allowed(interaction)) return;
-    const [kind, operation] = parsed.data.split(":");
+    const modalParts = parsed.data.split(":");
+    const kind = modalParts[0];
+    const operation = modalParts[1];
+    const modalSessionId = modalParts[2];
     const ids = interaction.fields.getTextInputValue("ids").split(",").map(id => id.trim()).filter(id => /^\d{15,22}$/.test(id));
     if (!ids.length) return interaction.reply({ content: "Provide one or more valid Discord IDs, separated by commas.", ephemeral: true });
     const config = await getConfig(interaction.guild.id);
@@ -1326,12 +1310,12 @@ async function saveList(interaction, parsed) {
         const type = interaction.fields.getTextInputValue("type").trim().toLowerCase();
         if (!(["user", "role", "channel"].includes(type))) return interaction.reply({ content: "Type must be user, role, or channel.", ephemeral: true });
         const path = `${type}s`;
-        const session = getSession(interaction.message?.id);
+        const session = getSession(modalSessionId);
         const module = session?.whitelistModule;
         if (!module || !["users", "roles"].includes(path)) return interaction.reply({ content: "Select a protection module and use its user/role whitelist controls.", ephemeral: true });
         const current = config[module]?.whitelist?.[path] || [];
         const next = operation === "add" ? [...new Set([...current, ...ids])] : current.filter(id => !ids.includes(id));
-        const staged = stageConfig(interaction.message.id, { [module + ".whitelist." + path]: next });
+        const staged = stageConfig(modalSessionId, { [module + ".whitelist." + path]: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
         return interaction.reply({ content: "Module-specific whitelist changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
     } else {
