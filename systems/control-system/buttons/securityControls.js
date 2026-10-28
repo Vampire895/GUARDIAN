@@ -75,7 +75,7 @@ async function allowed(interaction) {
     return true;
 }
 
-async function refreshSecurityDashboard(interaction, session) {
+async function refreshSecurityDashboard(interaction, session, moduleId) {
     try {
         const channel = await interaction.client.channels.fetch(session.channelId);
         if (!channel?.messages?.fetch) return;
@@ -86,7 +86,7 @@ async function refreshSecurityDashboard(interaction, session) {
                 message: { id: session.dashboardMessageId },
                 update: payload => message.edit(payload)
             },
-            moduleId: session.whitelistModule ? "whitelist" : "ignoredChannels"
+            moduleId
         });
     } catch (error) {
         console.error("[SECURITY DASHBOARD REFRESH ERROR]", error);
@@ -1352,7 +1352,7 @@ async function saveList(interaction, parsed) {
         const staged = stageConfig(modalSessionId, { [configPath]: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
         await interaction.reply({ content: "Module-specific whitelist changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
-        await refreshSecurityDashboard(interaction, session);
+        await refreshSecurityDashboard(interaction, session, "whitelist");
         return;
     } else if (kind === "ignored") {
         const session = getSession(modalSessionId);
@@ -1367,7 +1367,7 @@ async function saveList(interaction, parsed) {
         const staged = stageConfig(modalSessionId, { ignoredChannels: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
         await interaction.reply({ content: "Ignored-channel changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
-        await refreshSecurityDashboard(interaction, session);
+        await refreshSecurityDashboard(interaction, session, "ignoredChannels");
         return;
     }
     return interaction.reply({ content: "Invalid security list operation.", ephemeral: true });
