@@ -1322,9 +1322,16 @@ async function saveList(interaction, parsed) {
         const session = getSession(modalSessionId);
         const module = session?.whitelistModule;
         if (!module || !["users", "roles"].includes(path)) return interaction.reply({ content: "Select a protection module and use its user/role whitelist controls.", ephemeral: true });
-        const current = config[module]?.whitelist?.[path] || [];
-        const next = operation === "add" ? [...new Set([...current, ...ids])] : current.filter(id => !ids.includes(id));
-        const staged = stageConfig(modalSessionId, { [module + ".whitelist." + path]: next });
+        if (!session || session.ownerId !== interaction.user.id || session.guildId !== interaction.guild.id) {
+            return interaction.reply({ content: "Control session expired or does not belong to you.", ephemeral: true });
+        }
+        const configPath = module + ".whitelist." + path;
+        const stagedCurrent = session.stagedConfig?.[configPath];
+        const current = Array.isArray(stagedCurrent) ? stagedCurrent : (config[module]?.whitelist?.[path] || []);
+        const next = operation === "add"
+            ? [...new Set([...current, ...ids])]
+            : current.filter(id => !ids.includes(id));
+        const staged = stageConfig(modalSessionId, { [configPath]: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
         return interaction.reply({ content: "Module-specific whitelist changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
     } else if (kind === "ignored") {
@@ -1332,8 +1339,11 @@ async function saveList(interaction, parsed) {
         if (!session || session.ownerId !== interaction.user.id || session.guildId !== interaction.guild.id) {
             return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
         }
-        const current = config.ignoredChannels || [];
-        const next = operation === "add" ? [...new Set([...current, ...ids])] : current.filter(id => !ids.includes(id));
+        const stagedCurrent = session.stagedConfig?.ignoredChannels;
+        const current = Array.isArray(stagedCurrent) ? stagedCurrent : (config.ignoredChannels || []);
+        const next = operation === "add"
+            ? [...new Set([...current, ...ids])]
+            : current.filter(id => !ids.includes(id));
         const staged = stageConfig(modalSessionId, { ignoredChannels: next });
         if (!staged) return interaction.reply({ content: "Control session expired. Reopen .control and try again.", ephemeral: true });
         return interaction.reply({ content: "Ignored-channel changes staged. Use Save in the Control Centre to persist them.", ephemeral: true });
