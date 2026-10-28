@@ -24,7 +24,10 @@ function evaluate(member, config) {
   const last = lastTriggeredAt.get(guildId) || 0;
   if (current.length < threshold || now - last < interval) return { triggered: false, count: current.length };
   lastTriggeredAt.set(guildId, now);
-  return { triggered: true, action: config.action === "timeout" ? "timeout" : "kick", members: current.map(join => join.id), count: current.length, interval };
+  const members = current.map(join => join.id);
+  // Consume the triggering cohort so a later burst cannot re-punish the same old members.
+  joinTracker.set(guildId, []);
+  return { triggered: true, action: config.action === "timeout" ? "timeout" : "kick", members, count: members.length, interval };
 }
 
 function clearGuild(guildId) { joinTracker.delete(guildId); lastTriggeredAt.delete(guildId); }
