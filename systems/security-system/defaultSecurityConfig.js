@@ -44,6 +44,7 @@ module.exports = {
   antiBot: {
     enabled: false,
     whitelist: { users: [], roles: [] },
+  },
 
   antiWebhook: {
     enabled: false,
