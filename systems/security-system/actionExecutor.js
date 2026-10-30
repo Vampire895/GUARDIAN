@@ -1,6 +1,7 @@
+
 /**
  * actionExecutor.js
- * Executes moderation actions
+ * Executes automated moderation actions
  */
 
 const { warnUser } = require("../moderation-system/warnUser");
@@ -8,71 +9,127 @@ const { checkEscalation } = require("./escalation");
 const { getConfig } = require("./config");
 
 /**
- * Execute action
+ * Execute automated moderation action
  */
-async function execute({ action, userId, guild, reason = "Auto moderation" }) {
+async function execute({
+  action,
+  userId,
+  guild,
+  reason = "Auto moderation"
+}) {
   try {
     const member = await guild.members.fetch(userId).catch(() => null);
 
     if (!member) {
-      return { success: false, error: "Member not found" };
+      return {
+        success: false,
+        error: "Member not found"
+      };
     }
 
     // =========================
-    // 🔥 WARN
+    // WARN
     // =========================
     if (action === "warn") {
-      warnUser({
+      const warnResult = await warnUser({
         moderator: guild.members.me,
         target: member,
         reason,
+        sendDM: true
       });
 
-      
+      // Stop if warning could not be saved
+      if (!warnResult.success) {
+        return {
+          success: false,
+          error: warnResult.error || "Failed to issue warning"
+        };
+      }
 
-      // 🔥 CHECK ESCALATION
+      // Check escalation only after warning is saved
       const config = await getConfig(guild.id);
       const escalation = await checkEscalation(userId, config);
 
       if (escalation) {
-        // TIMEOUT
         if (escalation.action === "timeout") {
-          if (!member.moderatable) return;
-          await member.timeout(5 * 60 * 1000, "Escalation punishment");
+          if (!member.moderatable) {
+            return {
+              success: false,
+              error: "Cannot timeout member due to permissions or role hierarchy"
+            };
+          }
+
+          await member.timeout(
+            5 * 60 * 1000,
+            "Escalation punishment"
+          );
         }
 
-        // KICK
         if (escalation.action === "kick") {
-            if (!member.kickable) return;
+          if (!member.kickable) {
+            return {
+              success: false,
+              error: "Cannot kick member due to permissions or role hierarchy"
+            };
+          }
+
           await member.kick("Escalation punishment");
         }
       }
 
-      return { success: true };
+      return {
+        success: true
+      };
     }
 
     // =========================
-    // 🔥 TIMEOUT
+    // TIMEOUT
     // =========================
     if (action === "timeout") {
-        if (!member.moderatable) return;
+      if (!member.moderatable) {
+        return {
+          success: false,
+          error: "Cannot timeout member due to permissions or role hierarchy"
+        };
+      }
+
       await member.timeout(5 * 60 * 1000, reason);
-      return { success: true };
+
+      return {
+        success: true
+      };
     }
 
     // =========================
-    // 🔥 KICK
+    // KICK
     // =========================
     if (action === "kick") {
-        if (!member.kickable) return;
+      if (!member.kickable) {
+        return {
+          success: false,
+          error: "Cannot kick member due to permissions or role hierarchy"
+        };
+      }
+
       await member.kick(reason);
-      return { success: true };
+
+      return {
+        success: true
+      };
     }
 
-    return { success: false, error: "Invalid action type" };
+    return {
+      success: false,
+      error: "Invalid action type"
+    };
+
   } catch (err) {
     console.error("[ACTION EXECUTOR ERROR]", err);
-    return { success: false, error: err.message };
+
+    return {
+      success: false,
+      error: err.message
+    };
   }
 }
 

@@ -194,6 +194,47 @@ const schema = new mongoose.Schema({
         default: []
     },
 
+// =========================
+// 🛡️ GLOBAL SECURITY WHITELIST
+// =========================
+
+whitelist: {
+    // Legacy global whitelist (keeps .whitelist command working)
+    users: {
+        type: [String],
+        default: []
+    },
+    roles: {
+        type: [String],
+        default: []
+    },
+    channels: {
+        type: [String],
+        default: []
+    },
+
+    // Dashboard per-module whitelists
+    antiSpam: {
+        users: { type: [String], default: [] },
+        roles: { type: [String], default: [] }
+    },
+    antiLink: {
+        users: { type: [String], default: [] },
+        roles: { type: [String], default: [] }
+    },
+    inviteFilter: {
+        users: { type: [String], default: [] },
+        roles: { type: [String], default: [] }
+    },
+    antiRaid: {
+        users: { type: [String], default: [] },
+        roles: { type: [String], default: [] }
+    },
+    antiBot: {
+        users: { type: [String], default: [] },
+        roles: { type: [String], default: [] }
+    }
+},
         // =========================
     // 🛡️ VERIFICATION
     // =========================

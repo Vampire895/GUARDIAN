@@ -50,9 +50,15 @@ module.exports = {
   ignoredChannels: [],
 
  whitelist: {
-  users: [],
-  roles: [],
-  channels: []
+    users: [],
+    roles: [],
+    channels: [],
+
+    antiSpam: { users: [], roles: [] },
+    antiLink: { users: [], roles: [] },
+    inviteFilter: { users: [], roles: [] },
+    antiRaid: { users: [], roles: [] },
+    antiBot: { users: [], roles: [] }
 },
 
   actions: {
